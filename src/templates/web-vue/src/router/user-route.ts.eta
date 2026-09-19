@@ -12,7 +12,16 @@ export const UserRoutes = [
       subtitle: 'Overview of your workspace',
     },
   },
-  {
+<% if (it.IncludeSampleFeature === "true") { %>  {
+    path: 'products',
+    name: 'Products',
+    component: () => import('@/views/products/ProductsView.vue'),
+    meta: {
+      title: 'Products',
+      subtitle: 'Sample CRUD feature generated with --sample-feature',
+    },
+  },
+<% } %>  {
     path: 'users/profile',
     name: 'UserProfile',
     component: () => import('@/views/user/ProfileView.vue'),

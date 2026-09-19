@@ -33,7 +33,7 @@ npm install -g github:BBT0423/create-clean-arch
 npm install
 npm run build
 npm pack
-npm install -g ./bbt0423-create-clean-arch-0.1.2.tgz
+npm install -g ./bbt0423-create-clean-arch-0.1.3.tgz
 ```
 
 ### ถ้าติดตั้งแล้วไม่พบคำสั่ง `create-clean-arch`
@@ -74,7 +74,7 @@ create-clean-arch create MyApp --frontend vue --ci github --sample-feature --yes
 | `--db <provider>` | ฐานข้อมูล — รองรับเฉพาะ `sqlserver` | `sqlserver` |
 | `--auth` / `--no-auth` | รวมระบบ Auth/JWT/MFA/ลืมรหัสผ่าน | `--auth` (เปิด) |
 | `--ci <provider>` | `none` \| `github` \| `bitbucket` | `none` |
-| `--sample-feature` | เพิ่มตัวอย่าง CRUD (`Products`) ต่อจาก baseline | ปิด |
+| `--sample-feature` | เพิ่มตัวอย่าง `Products` (backend: สร้าง/ดูตามไอดี/list) และถ้าใช้ `--frontend vue` จะได้หน้า Products ด้วย | ปิด |
 | `--solution-format <format>` | `sln` (แบบคลาสสิก) หรือ `slnx` (แบบ XML ใหม่) | `sln` |
 | `--skip-install` | ข้ามการรัน `dotnet restore` หลังสร้างเสร็จ | ปิด |
 | `--migrate` / `--no-migrate` | สร้าง EF Core migration แรก (`InitialCreate`) หลังสร้างเสร็จ | ถาม |
@@ -111,7 +111,7 @@ create-clean-arch generate feature Orders --entity Order --crud create,read,list
 การจัดการไฟล์ชนกันเป็นแบบ "ทั้งหมดหรือไม่เลย": ถ้ามีไฟล์ปลายทางใดมีอยู่แล้วและเนื้อหาต่างกัน
 จะไม่เขียนอะไรเลย (และแสดงรายการไฟล์ที่ชน) เว้นแต่ใส่ `--force`
 
-> `generate feature` สร้างเฉพาะฝั่ง backend เท่านั้น ยังไม่มีหน้า UI สำหรับ CRUD ที่สร้างให้
+> `generate feature` สร้างเฉพาะฝั่ง backend เท่านั้น ยังไม่สร้างหน้า UI ให้ (ตัวอย่างหน้า UI มีเฉพาะ `Products` จาก `--sample-feature` ซึ่งเป็นแบบอย่างให้ทำหน้าอื่นตาม)
 
 ## หลังสร้างโปรเจกต์เสร็จ
 

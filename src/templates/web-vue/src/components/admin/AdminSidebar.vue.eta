@@ -136,7 +136,9 @@ const tooltipStyle = computed(() => {
 const icons = {
   dashboard:
     '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8"/></svg>',
-  settings:
+<% if (it.IncludeSampleFeature === "true") { %>  products:
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 8l-9-5-9 5 9 5 9-5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 8v8l9 5 9-5V8M12 13v8" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+<% } %>  settings:
     '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3m0 14v3M4.2 4.2l2.1 2.1m11.4 11.4l2.1 2.1M2 12h3m14 0h3M4.2 19.8l2.1-2.1m11.4-11.4l2.1-2.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
 };
 
@@ -144,7 +146,10 @@ const menuSections = computed(() => {
   const sections: { title: string; items: MenuItem[] }[] = [
     {
       title: 'Workspace',
-      items: [{ icon: icons.dashboard, label: 'Dashboard', href: '/pages/dashboard' }],
+      items: [
+        { icon: icons.dashboard, label: 'Dashboard', href: '/pages/dashboard' },
+<% if (it.IncludeSampleFeature === "true") { %>        { icon: icons.products, label: 'Products', href: '/pages/products' },
+<% } %>      ],
     },
     {
       title: 'System',
