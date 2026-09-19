@@ -4,11 +4,9 @@ import type { TokenMap } from "../core/types.js";
 import { generateVueWeb } from "./web/vue-generator.js";
 
 /**
- * Dispatches to the per-framework web generator. Only "vue" is implemented — it's the one
- * framework ported from a real reference project (SummaryYearSalary.Web). React/Angular/Next
- * were deliberately deprioritized: there's no real reference project for them, so building them
- * now would mean guessing conventions without anything to verify against. Revisit if/when a real
- * project needs one of them.
+ * Dispatches to the per-framework web generator. Only "vue" is implemented. React/Angular/Next
+ * are deliberately not implemented: without a real project to verify against, building them
+ * would mean guessing conventions. Revisit if/when a real project needs one of them.
  */
 export function generateWeb(
   templatesRoot: string,

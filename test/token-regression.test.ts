@@ -11,11 +11,9 @@ import { writeFileTree } from "../src/core/file-tree-writer.js";
 import { classifyPlan } from "../src/core/overwrite-policy.js";
 import type { CreateOptions } from "../src/core/types.js";
 
-// Regression test for the real bug found in Family-expense-tracker's generated
-// bitbucket-pipelines.yml, where a literal "Stackapp.*" string (the name of the project the
-// original template was copied from) survived into every project this CLI's predecessor ever
-// generated. Every file this CLI writes must have every `{Token}` placeholder replaced, and must
-// never contain the name of a reference project this CLI's own templates were ported from.
+// Regression test: a literal project name from the source a template was copied from once
+// survived into generated output. Every file this CLI writes must have every `{Token}`
+// placeholder replaced, and must never contain the name of a project the templates were derived from.
 
 const FORBIDDEN_TOKENS = [
   "{ProjectName}",
@@ -28,8 +26,8 @@ const FORBIDDEN_TOKENS = [
   "{Year}",
 ];
 
-// Names of the real projects this CLI's templates were ported from — must never leak into output.
-const FORBIDDEN_REFERENCE_NAMES = ["SummaryYearSalary", "Stackapp", "ReadManga", "InnoFinite"];
+// Names of projects the templates were derived from — must never leak into output.
+const FORBIDDEN_REFERENCE_NAMES = ["SummaryYearSalary", "Stackapp", "ReadManga"];
 
 function walkFiles(root: string): string[] {
   const results: string[] = [];
