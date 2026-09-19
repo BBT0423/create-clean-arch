@@ -6,6 +6,7 @@ using MediatR;
 
 namespace <%= it.RootNamespace %>.Application.Authorize.Commands.LoginCommand;
 
+[SensitiveRequest]
 public record LoginCommand(string Email, string Password, string IpAddress) : IRequest<Result<AuthorizeResponse>>;
 
 

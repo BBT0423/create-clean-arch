@@ -4,6 +4,7 @@ using MediatR;
 
 namespace <%= it.RootNamespace %>.Application.Authorize.Commands.RefreshTokenCommand;
 
+[SensitiveRequest]
 public record RefreshTokenCommand(
     string RefreshToken,
     string IpAddress

@@ -6,6 +6,7 @@ using MediatR;
 
 namespace <%= it.RootNamespace %>.Application.User.Commands.ConfirmMfaCommand;
 
+[SensitiveRequest]
 public record ConfirmMfaCommand(string UserId, string Code, string IpAddress) : IRequest<Result<bool>>;
 
 public class ConfirmMfaCommandValidator : AbstractValidator<ConfirmMfaCommand>

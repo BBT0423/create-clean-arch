@@ -4,4 +4,5 @@ using MediatR;
 
 namespace <%= it.RootNamespace %>.Application.Authorize.Queries.VerifyMfaQuery;
 
+[SensitiveRequest]
 public record VerifyMfaQuery(string UserId, string MfaCode, string IpAddress) : IRequest<Result<AuthorizeResponse>>;

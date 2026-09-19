@@ -1,3 +1,5 @@
+using System.Reflection;
+
 using <%= it.RootNamespace %>.Application.Interfaces;
 
 using FluentValidation;
@@ -6,49 +8,52 @@ using MediatR;
 
 namespace <%= it.RootNamespace %>.Application.Common;
 
-public class ValidationBehavior<TRequest, TResponse>(IValidator<TRequest>? validator = null, IAppLogger? logger = null) : IPipelineBehavior<TRequest, TResponse>
+/// <summary>
+/// Runs every registered validator for a request before its handler. On failure the handler is skipped
+/// and the response describes the errors, grouped by property.
+/// </summary>
+public sealed class ValidationBehavior<TRequest, TResponse>(
+    IEnumerable<IValidator<TRequest>> validators,
+    IAppLogger? logger = null) : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
+    where TResponse : IValidationFailureResult<TResponse>
 {
-    private readonly IValidator<TRequest>? _validator = validator;
-    private readonly IAppLogger? _logger = logger;
+    private static readonly bool IsSensitive = typeof(TRequest).GetCustomAttribute<SensitiveRequestAttribute>() is not null;
 
-    public async Task<TResponse> Handle(
-        TRequest request,
-        RequestHandlerDelegate<TResponse> next,
-        CancellationToken cancellationToken)
+    public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(next);
 
-        // Skip logging for Authorize namespace requests to avoid logging sensitive data
-        var requestType = typeof(TRequest);
-        var shouldLog = !requestType.Namespace?.Contains("<%= it.RootNamespace %>.Application.Authorize", StringComparison.OrdinalIgnoreCase) ?? true;
-
-        if (shouldLog)
+        if (!IsSensitive)
         {
-            _logger?.LogDebug("Request: {@Request}", request);
+            logger?.LogDebug("Request: {@Request}", request);
         }
 
-        if (_validator is null)
+        var failures = await CollectFailuresAsync(request, cancellationToken);
+        if (failures.Count == 0)
         {
             return await next();
         }
 
-        var validationResult = await _validator.ValidateAsync(request, cancellationToken);
+        var errors = failures
+            .GroupBy(failure => failure.PropertyName)
+            .ToDictionary(group => group.Key, group => group.Select(failure => failure.ErrorMessage).Distinct().ToArray());
 
-        if (validationResult.IsValid)
+        logger?.LogDebug("Validation error: {@Errors}", errors);
+        return TResponse.FromValidationErrors(errors);
+    }
+
+    private async Task<List<FluentValidation.Results.ValidationFailure>> CollectFailuresAsync(TRequest request, CancellationToken cancellationToken)
+    {
+        var failures = new List<FluentValidation.Results.ValidationFailure>();
+        var context = new ValidationContext<TRequest>(request);
+
+        foreach (var validator in validators)
         {
-            return await next();
+            var outcome = await validator.ValidateAsync(context, cancellationToken);
+            failures.AddRange(outcome.Errors);
         }
 
-        var errors = validationResult.Errors
-            .GroupBy(e => e.PropertyName)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Select(e => e.ErrorMessage).ToArray()
-            );
-        _logger?.LogDebug("Validation error: {@Errors}", errors);
-        var resultType = typeof(TResponse);
-        var result = Activator.CreateInstance(resultType, "Validation failed", 400, errors);
-        return (TResponse)result!;
+        return failures;
     }
 }

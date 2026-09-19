@@ -1,0 +1,62 @@
+using System.Text.Json;
+
+using MediatR;
+
+using Microsoft.Extensions.DependencyInjection;
+
+using Moq;
+
+using <%= it.RootNamespace %>.Application;
+using <%= it.RootNamespace %>.Application.Authorize.Commands.LoginCommand;
+using <%= it.RootNamespace %>.Application.Common;
+using <%= it.RootNamespace %>.Application.Interfaces.IServices;
+using <%= it.RootNamespace %>.Tests.Fixtures;
+
+namespace <%= it.RootNamespace %>.Tests.Application.Common;
+
+public class ResultPipelineTests : BaseTest
+{
+    [Fact]
+    public void Result_Serializes_TheShapeTheWebClientExpects()
+    {
+        var json = JsonSerializer.Serialize(Result.Success(42), JsonSerializerOptions.Web);
+        using var document = JsonDocument.Parse(json);
+        var names = document.RootElement.EnumerateObject().Select(p => p.Name).ToArray();
+
+        Assert.Equal(["isSuccess", "value", "error", "statusCode", "validationErrors"], names);
+        Assert.True(document.RootElement.GetProperty("isSuccess").GetBoolean());
+        Assert.Equal(200, document.RootElement.GetProperty("statusCode").GetInt32());
+    }
+
+    [Fact]
+    public void FailedResults_CarryStatusAndMessage()
+    {
+        var unauthorized = Result.Unauthorized<string>("Nope");
+        var failure = Result.Failure<string>("Bad input");
+
+        Assert.False(unauthorized.IsSuccess);
+        Assert.Equal(401, unauthorized.StatusCode);
+        Assert.Equal("Bad input", failure.Error);
+        Assert.Equal(400, failure.StatusCode);
+        Assert.Empty(failure.ValidationErrors);
+    }
+
+    [Fact]
+    public async Task ValidationBehavior_ShortCircuitsInvalidRequests_WithGroupedErrors()
+    {
+        var authorizeService = new Mock<IAuthorizeService>(MockBehavior.Strict);
+        var services = new ServiceCollection();
+        services.AddSingleton(authorizeService.Object);
+        services.AddApplicationServiceRegistration();
+        await using var provider = services.BuildServiceProvider();
+
+        var result = await provider.GetRequiredService<ISender>().Send(new LoginCommand("", "", "127.0.0.1"));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(400, result.StatusCode);
+        Assert.Contains("Email", result.ValidationErrors.Keys);
+        Assert.Contains("Password", result.ValidationErrors.Keys);
+        // Strict mock: any call to the service would have thrown, proving the handler never ran.
+        authorizeService.VerifyNoOtherCalls();
+    }
+}

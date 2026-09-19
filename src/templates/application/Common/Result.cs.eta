@@ -1,35 +1,52 @@
 namespace <%= it.RootNamespace %>.Application.Common;
 
-public sealed class Result<T>
+/// <summary>
+/// A response type that can describe its own validation failure. The validation pipeline uses this
+/// (via a static abstract member) to build a failed response without reflection.
+/// </summary>
+public interface IValidationFailureResult<TSelf> where TSelf : IValidationFailureResult<TSelf>
 {
-    public bool IsSuccess { get; private set; }
-    public T? Value { get; private set; }
-    public string? Error { get; private set; }
-    public int StatusCode { get; private set; }
-    public Dictionary<string, string[]> ValidationErrors { get; private set; }
+    static abstract TSelf FromValidationErrors(IReadOnlyDictionary<string, string[]> errors);
+}
 
-    public Result(T value)
+/// <summary>
+/// Outcome of an application use case: either a value, or an error with an HTTP-style status code.
+/// The serialized shape (isSuccess, value, error, statusCode, validationErrors) is a contract with the web client.
+/// </summary>
+public sealed class Result<T> : IValidationFailureResult<Result<T>>
+{
+    private static readonly IReadOnlyDictionary<string, string[]> NoErrors = new Dictionary<string, string[]>();
+
+    public bool IsSuccess { get; }
+    public T? Value { get; }
+    public string? Error { get; }
+    public int StatusCode { get; }
+    public IReadOnlyDictionary<string, string[]> ValidationErrors { get; }
+
+    private Result(bool isSuccess, T? value, string? error, int statusCode, IReadOnlyDictionary<string, string[]> validationErrors)
     {
-        IsSuccess = true;
+        IsSuccess = isSuccess;
         Value = value;
-        StatusCode = 200;
-        Error = null;
-        ValidationErrors = [];
-    }
-
-    public Result(string error, int statusCode, Dictionary<string, string[]>? validationErrors = null)
-    {
-        IsSuccess = false;
-        Value = default;
         Error = error;
         StatusCode = statusCode;
-        ValidationErrors = validationErrors ?? [];
+        ValidationErrors = validationErrors;
     }
+
+    internal static Result<T> Ok(T value) => new(true, value, null, 200, NoErrors);
+
+    internal static Result<T> Fail(string error, int statusCode) => new(false, default, error, statusCode, NoErrors);
+
+    public static Result<T> FromValidationErrors(IReadOnlyDictionary<string, string[]> errors) =>
+        new(false, default, "Validation failed", 400, errors);
 }
+
 public static class Result
 {
-    public static Result<T> Success<T>(T value) => new(value);
-    public static Result<T> Failure<T>(string error, int statusCode = 400) => new(error, statusCode);
-    public static Result<T> Unauthorized<T>(string error, int statusCode = 401) => new(error, statusCode);
-    public static Result<T> ValidationFailure<T>(Dictionary<string, string[]> validationErrors) => new("Validation failed", 400, validationErrors);
+    public static Result<T> Success<T>(T value) => Result<T>.Ok(value);
+
+    public static Result<T> Failure<T>(string error, int statusCode = 400) => Result<T>.Fail(error, statusCode);
+
+    public static Result<T> Unauthorized<T>(string error, int statusCode = 401) => Result<T>.Fail(error, statusCode);
+
+    public static Result<T> ValidationFailure<T>(IReadOnlyDictionary<string, string[]> errors) => Result<T>.FromValidationErrors(errors);
 }
