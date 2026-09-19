@@ -1,0 +1,53 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+
+using <%= it.RootNamespace %>.Infrastructure.Common;
+
+namespace <%= it.RootNamespace %>.Infrastructure.DependencyInjection;
+
+public static class SettingsExtensions
+{
+    private const int MinimumJwtSecretLength = 32;
+
+    /// <summary>
+    /// Binds every settings section to a strongly typed option. Secret placeholders are resolved
+    /// after binding, and the JWT settings are validated when the host starts so a missing secret
+    /// fails immediately instead of at the first login.
+    /// </summary>
+    public static IServiceCollection AddApplicationSettings(this IServiceCollection services)
+    {
+        services.AddOptions<JwtSettings>()
+            .BindConfiguration(JwtSettings.SectionName)
+            .PostConfigure(jwt => jwt.Secret = EnvironmentPlaceholders.Resolve(jwt.Secret))
+            .Validate(
+                jwt => jwt.Secret.Length >= MinimumJwtSecretLength,
+                $"JwtSettings:Secret must be at least {MinimumJwtSecretLength} characters. Set APP_JWT_SECRET (a local .env file is generated for development).")
+            .Validate(
+                jwt => !string.IsNullOrWhiteSpace(jwt.Issuer) && !string.IsNullOrWhiteSpace(jwt.Audience),
+                "JwtSettings:Issuer and JwtSettings:Audience are required.")
+            .ValidateOnStart();
+
+        services.AddOptions<EmailSettings>()
+            .BindConfiguration(EmailSettings.SectionName)
+            .PostConfigure(email =>
+            {
+                email.From = EnvironmentPlaceholders.Resolve(email.From);
+                email.UserName = EnvironmentPlaceholders.Resolve(email.UserName);
+                email.Password = EnvironmentPlaceholders.Resolve(email.Password);
+            });
+
+        services.AddOptions<SecuritySettings>().BindConfiguration(SecuritySettings.SectionName);
+        services.AddOptions<RateLimitSettings>().BindConfiguration(RateLimitSettings.SectionName);
+
+        services.AddOptions<AuthorizeServiceSettings>()
+            .Configure<IOptions<SecuritySettings>, IOptions<JwtSettings>, IOptions<EmailSettings>>(
+                (combined, security, jwt, email) =>
+                {
+                    combined.Security = security.Value;
+                    combined.Jwt = jwt.Value;
+                    combined.Email = email.Value;
+                });
+
+        return services;
+    }
+}

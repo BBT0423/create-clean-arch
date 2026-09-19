@@ -1,0 +1,140 @@
+using System.Text;
+
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+
+using <%= it.RootNamespace %>.Application.Interfaces.IRepositories;
+using <%= it.RootNamespace %>.Application.Interfaces.IServices;
+using <%= it.RootNamespace %>.Infrastructure;
+using <%= it.RootNamespace %>.Infrastructure.Common;
+using <%= it.RootNamespace %>.Tests.Fixtures;
+
+namespace <%= it.RootNamespace %>.Tests.Infrastructure;
+
+/// <summary>
+/// Builds the real Infrastructure registration with full container validation. A build cannot catch a
+/// missing or mis-scoped service, and a startup crash only shows up when the application runs.
+/// </summary>
+[Collection("Environment variables")]
+public class InfrastructureRegistrationTests : BaseTest, IDisposable
+{
+    private const string Secret = "unit-test-secret-that-is-comfortably-longer-than-32-chars";
+
+    private readonly Dictionary<string, string?> _originalEnvironment = new();
+
+    public InfrastructureRegistrationTests()
+    {
+        SetEnvironment("APP_JWT_SECRET", Secret);
+        SetEnvironment("APP_DB_CONNECTION", "Encrypt=False");
+    }
+
+    public void Dispose()
+    {
+        foreach (var (name, value) in _originalEnvironment)
+        {
+            Environment.SetEnvironmentVariable(name, value);
+        }
+
+        GC.SuppressFinalize(this);
+    }
+
+    private void SetEnvironment(string name, string? value)
+    {
+        _originalEnvironment.TryAdd(name, Environment.GetEnvironmentVariable(name));
+        Environment.SetEnvironmentVariable(name, value);
+    }
+
+    private static ServiceProvider BuildProvider(IDictionary<string, string?>? overrides = null)
+    {
+        var settings = new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:<%= it.ProjectName %>Connection"] = "Server=(localdb)\\mssqllocaldb;Database=UnitTests;Trusted_Connection=True;{APP_DB_CONNECTION}",
+            ["JwtSettings:Issuer"] = "tests",
+            ["JwtSettings:Audience"] = "tests",
+            ["JwtSettings:Secret"] = "{APP_JWT_SECRET}",
+            ["EmailSettings:SmtpServer"] = "smtp.example.com",
+            ["EmailSettings:From"] = "{APP_SMTP_USERNAME}",
+            ["SecuritySettings:MinPasswordLength"] = "12",
+            ["SecuritySettings:MaxFailedLoginAttempts"] = "3",
+            ["RateLimitSettings:PermitLimit"] = "50"
+        };
+
+        foreach (var (key, value) in overrides ?? new Dictionary<string, string?>())
+        {
+            settings[key] = value;
+        }
+
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        // In the application, UseSerilog() on the host provides this; there is no host in a unit test.
+        services.AddSingleton<Serilog.ILogger>(new Serilog.LoggerConfiguration().CreateLogger());
+        services.AddSingleton<IConfiguration>(configuration);
+        services.AddInfrastructureServiceRegistration(configuration);
+
+        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+    }
+
+    [Fact]
+    public async Task EveryRegisteredService_CanBeConstructed()
+    {
+        await using var provider = BuildProvider();
+        using var scope = provider.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IAuthorizeService>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IEmailRepository>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IAuditLogRepository>());
+    }
+
+    [Fact]
+    public async Task JwtValidationKey_MatchesTheKeyTokensAreSignedWith()
+    {
+        await using var provider = BuildProvider();
+
+        var jwtSettings = provider.GetRequiredService<IOptions<JwtSettings>>().Value;
+        var bearer = provider.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>().Get(JwtBearerDefaults.AuthenticationScheme);
+        var validationKey = Assert.IsType<SymmetricSecurityKey>(bearer.TokenValidationParameters.IssuerSigningKey);
+
+        Assert.Equal(Secret, jwtSettings.Secret);
+        Assert.Equal(Encoding.UTF8.GetBytes(jwtSettings.Secret), validationKey.Key);
+    }
+
+    [Fact]
+    public async Task IdentityRules_FollowTheSecuritySettingsSection()
+    {
+        await using var provider = BuildProvider();
+        var identity = provider.GetRequiredService<IOptions<IdentityOptions>>().Value;
+
+        Assert.Equal(12, identity.Password.RequiredLength);
+        Assert.Equal(3, identity.Lockout.MaxFailedAccessAttempts);
+        Assert.True(identity.User.RequireUniqueEmail);
+    }
+
+    [Fact]
+    public async Task MissingJwtSecret_FailsFast()
+    {
+        SetEnvironment("APP_JWT_SECRET", null);
+
+        await using var provider = BuildProvider();
+
+        Assert.Throws<OptionsValidationException>(() => provider.GetRequiredService<IOptions<JwtSettings>>().Value);
+    }
+
+    [Fact]
+    public void MissingDatabasePlaceholderValue_IsReportedClearly()
+    {
+        SetEnvironment("APP_DB_CONNECTION", null);
+
+        var error = Assert.Throws<InvalidOperationException>(() => BuildProvider());
+
+        Assert.Contains("APP_DB_CONNECTION", error.Message);
+    }
+}
+
+[CollectionDefinition("Environment variables", DisableParallelization = true)]
+public class EnvironmentVariablesCollection;

@@ -1,0 +1,106 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+
+using <%= it.RootNamespace %>.Application.Interfaces;
+using <%= it.RootNamespace %>.Application.Interfaces.IRepositories;
+using <%= it.RootNamespace %>.Application.Interfaces.IServices;
+using <%= it.RootNamespace %>.Domain.Entities;
+using <%= it.RootNamespace %>.Infrastructure.Common;
+using <%= it.RootNamespace %>.Infrastructure.Data;
+using <%= it.RootNamespace %>.Infrastructure.Repositories;
+using <%= it.RootNamespace %>.Infrastructure.Services;
+
+namespace <%= it.RootNamespace %>.Infrastructure.DependencyInjection;
+
+public static class PersistenceExtensions
+{
+    private const string ConnectionName = "<%= it.ProjectName %>Connection";
+
+    /// <summary>Database context, ASP.NET Core Identity stores and everything that reads or writes data.</summary>
+    public static IServiceCollection AddPersistence(this IServiceCollection services, IConfiguration configuration)
+    {
+        return services
+            .AddDatabase(configuration)
+            .AddIdentityStores()
+            .AddDataServices();
+    }
+
+    private static IServiceCollection AddDatabase(this IServiceCollection services, IConfiguration configuration)
+    {
+        var template = configuration.GetConnectionString(ConnectionName);
+        if (string.IsNullOrWhiteSpace(template))
+        {
+            throw new InvalidOperationException($"The connection string '{ConnectionName}' is missing or empty. The application cannot start without a valid database connection string.");
+        }
+
+        var connectionString = EnvironmentPlaceholders.Resolve(template, requireAll: true);
+        var logSensitiveData = configuration.GetValue<bool>("IsDevelopment");
+
+        services.AddDbContext<<%= it.DbContextName %>>(options =>
+        {
+            options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorNumbersToAdd: null));
+
+            if (logSensitiveData)
+            {
+                options.EnableSensitiveDataLogging();
+            }
+        });
+
+        return services;
+    }
+
+    private static IServiceCollection AddIdentityStores(this IServiceCollection services)
+    {
+        services.AddIdentity<ApplicationUser, IdentityRole>()
+            .AddEntityFrameworkStores<<%= it.DbContextName %>>()
+            .AddDefaultTokenProviders();
+
+        // Password and lockout rules come from the SecuritySettings section of appsettings.
+        services.AddOptions<IdentityOptions>().Configure<IOptions<SecuritySettings>>((identity, security) =>
+        {
+            var rules = security.Value;
+
+            identity.Password.RequiredLength = rules.MinPasswordLength;
+            identity.Password.RequireDigit = rules.RequireDigit;
+            identity.Password.RequireLowercase = rules.RequireLowercase;
+            identity.Password.RequireUppercase = rules.RequireUppercase;
+            identity.Password.RequireNonAlphanumeric = rules.RequireNonAlphanumeric;
+            identity.Password.RequiredUniqueChars = 4;
+
+            identity.Lockout.MaxFailedAccessAttempts = rules.MaxFailedLoginAttempts;
+            identity.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(rules.LockoutDurationMinutes);
+            identity.Lockout.AllowedForNewUsers = true;
+
+            identity.User.RequireUniqueEmail = true;
+            identity.SignIn.RequireConfirmedEmail = false; // Set to true in production
+            identity.SignIn.RequireConfirmedAccount = false;
+        });
+
+        return services;
+    }
+
+    private static IServiceCollection AddDataServices(this IServiceCollection services)
+    {
+        services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+        services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<IAppLogger, AppLogger>();
+
+        services.AddScoped<IAuthorizeService, AuthorizeService>();
+        services.AddScoped<IOtpService, OtpService>();
+        services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+<% if (it.IncludeSampleFeature === "true") { %>
+        // Sample feature
+        services.AddScoped<I<%= it.EntityName %>Repository, <%= it.EntityName %>Repository>();
+<% } %>
+        return services;
+    }
+}

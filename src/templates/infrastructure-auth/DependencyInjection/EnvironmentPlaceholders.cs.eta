@@ -1,0 +1,40 @@
+using System.Text.RegularExpressions;
+
+namespace <%= it.RootNamespace %>.Infrastructure.DependencyInjection;
+
+/// <summary>
+/// Configuration files reference secrets as <c>{APP_NAME}</c> placeholders; the values come from
+/// environment variables (a gitignored .env file provides them in development).
+/// </summary>
+public static partial class EnvironmentPlaceholders
+{
+    [GeneratedRegex(@"\{(APP_[A-Z0-9_]+)\}")]
+    private static partial Regex PlaceholderPattern();
+
+    /// <summary>
+    /// Replaces every <c>{APP_NAME}</c> in the text with the matching environment variable.
+    /// A missing variable becomes an empty string, or throws when <paramref name="requireAll"/> is set.
+    /// </summary>
+    public static string Resolve(string? text, bool requireAll = false)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return string.Empty;
+        }
+
+        return PlaceholderPattern().Replace(text, match =>
+        {
+            var name = match.Groups[1].Value;
+            var value = Environment.GetEnvironmentVariable(name);
+
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
+            return requireAll
+                ? throw new InvalidOperationException($"The environment variable '{name}' is missing or empty, but the configuration references '{match.Value}'. The application cannot start without it.")
+                : string.Empty;
+        });
+    }
+}

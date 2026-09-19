@@ -21,7 +21,13 @@ public sealed class MailTransport(IFluentEmailFactory emailFactory, IOptions<Ema
         try
         {
             // A fresh builder per attempt: FluentEmail builders accumulate recipients if reused.
-            var outcome = await emailFactory.Create()
+            var email = emailFactory.Create();
+            if (!string.IsNullOrWhiteSpace(settings.Value.From))
+            {
+                email.SetFrom(settings.Value.From, "<%= it.ProjectName %> Web");
+            }
+
+            var outcome = await email
                 .To(string.Join(";", envelope.Recipients))
                 .Subject(envelope.Subject)
                 .Body(envelope.Body, isHtml: true)

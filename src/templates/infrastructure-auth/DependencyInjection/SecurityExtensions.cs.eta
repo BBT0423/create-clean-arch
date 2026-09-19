@@ -1,0 +1,127 @@
+using System.Text;
+using System.Threading.RateLimiting;
+
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+
+using <%= it.RootNamespace %>.Infrastructure.Common;
+
+namespace <%= it.RootNamespace %>.Infrastructure.DependencyInjection;
+
+public static class SecurityExtensions
+{
+    /// <summary>
+    /// JWT bearer authentication. The validation parameters are built from the same
+    /// <see cref="JwtSettings"/> option that <c>JwtTokenGenerator</c> signs with, so the signing key
+    /// and the validation key can never drift apart.
+    /// </summary>
+    public static IServiceCollection AddJwtAuthentication(this IServiceCollection services)
+    {
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<IOptions<JwtSettings>>((bearer, jwt) =>
+            {
+                var settings = jwt.Value;
+
+                bearer.SaveToken = true;
+                bearer.RequireHttpsMetadata = true;
+                bearer.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = settings.Issuer,
+                    ValidAudience = settings.Audience,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.Secret)),
+                    ClockSkew = TimeSpan.Zero
+                };
+
+                bearer.Events = new JwtBearerEvents
+                {
+                    OnAuthenticationFailed = context =>
+                    {
+                        CreateLogger(context.HttpContext).LogWarning("JWT authentication failed: {Error}", context.Exception.Message);
+                        return Task.CompletedTask;
+                    },
+                    OnTokenValidated = context =>
+                    {
+                        CreateLogger(context.HttpContext).LogInformation("JWT token validated for user: {User}", context.Principal?.Identity?.Name);
+                        return Task.CompletedTask;
+                    }
+                };
+            });
+
+        return services;
+    }
+
+    /// <summary>One fixed-window limit per client (per user once authenticated). Addresses OWASP #4.</summary>
+    public static IServiceCollection AddClientRateLimiting(this IServiceCollection services)
+    {
+        services.AddRateLimiter(_ => { });
+
+        services.AddOptions<RateLimiterOptions>().Configure<IOptions<RateLimitSettings>>((limiter, limits) =>
+        {
+            var settings = limits.Value;
+
+            limiter.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+            {
+                var client = context.User.Identity?.IsAuthenticated == true
+                    ? context.User.Identity.Name!
+                    : context.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+
+                return RateLimitPartition.GetFixedWindowLimiter(client, _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = settings.PermitLimit,
+                    Window = TimeSpan.FromSeconds(settings.WindowSeconds),
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = settings.QueueLimit
+                });
+            });
+
+            limiter.OnRejected = async (context, cancellationToken) =>
+            {
+                CreateLogger(context.HttpContext).LogWarning("Rate limit exceeded for {IpAddress}", context.HttpContext.Connection.RemoteIpAddress);
+
+                context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                await context.HttpContext.Response.WriteAsJsonAsync(
+                    new ProblemDetails
+                    {
+                        Status = StatusCodes.Status429TooManyRequests,
+                        Title = "Too many requests",
+                        Type = "https://tools.ietf.org/html/rfc7231#section-6.5.8",
+                        Detail = "You have exceeded the allowed number of requests. Please try again later.",
+                        Instance = context.HttpContext.Request.Path
+                    },
+                    options: null,
+                    contentType: "application/problem+json",
+                    cancellationToken);
+            };
+        });
+
+        return services;
+    }
+
+    public static IServiceCollection AddWebClientCors(this IServiceCollection services, IConfiguration configuration)
+    {
+        var origins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+
+        return services.AddCors(options => options.AddDefaultPolicy(policy => policy
+            .AllowAnyHeader()
+            .WithMethods("GET", "POST", "PUT", "DELETE")
+            .WithOrigins(origins)
+            .AllowCredentials()));
+    }
+
+    private static ILogger CreateLogger(HttpContext context) =>
+        context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Security");
+}

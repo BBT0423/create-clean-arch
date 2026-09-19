@@ -1,0 +1,46 @@
+using System.Net;
+using System.Net.Mail;
+
+using FluentEmail.Core.Interfaces;
+using FluentEmail.Smtp;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+
+using <%= it.RootNamespace %>.Application.Interfaces.IRepositories;
+using <%= it.RootNamespace %>.Infrastructure.Common;
+using <%= it.RootNamespace %>.Infrastructure.Repositories;
+
+namespace <%= it.RootNamespace %>.Infrastructure.DependencyInjection;
+
+public static class EmailExtensions
+{
+    /// <summary>
+    /// Email delivery: SMTP sender configured from <see cref="EmailSettings"/>, a transport for single
+    /// attempts, an outbox for failed ones and the background service that retries them.
+    /// The services are registered even when notifications are disabled, because callers depend on
+    /// <see cref="IEmailRepository"/> unconditionally; the setting only decides whether anything is sent.
+    /// </summary>
+    public static IServiceCollection AddEmailDelivery(this IServiceCollection services)
+    {
+        // The real sender address comes from EmailSettings at send time (see MailTransport).
+        services.AddFluentEmail("noreply@localhost");
+        services.AddSingleton<ISender>(provider =>
+        {
+            var settings = provider.GetRequiredService<IOptions<EmailSettings>>();
+            return new SmtpSender(() => new SmtpClient(settings.Value.SmtpServer)
+            {
+                Port = settings.Value.Port ?? 587,
+                Credentials = new NetworkCredential(settings.Value.UserName, settings.Value.Password),
+                EnableSsl = true
+            });
+        });
+
+        services.AddSingleton<EmailOutbox>();
+        services.AddScoped<MailTransport>();
+        services.AddScoped<IEmailRepository, EmailRepository>();
+        services.AddHostedService<EmailDeliveryService>();
+
+        return services;
+    }
+}
