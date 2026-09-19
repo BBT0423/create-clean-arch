@@ -49,22 +49,6 @@ public static partial class Program
                 .AddInfrastructureServiceRegistration(builder.Configuration);
         }
 
-        static void HandleGlobalError(IApplicationBuilder errorApp) => errorApp.Run(async context =>
-        {
-            context.Response.StatusCode = 500;
-            context.Response.ContentType = "application/problem+json";
-
-            var exceptionHandlerPathFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
-            var problem = new Microsoft.AspNetCore.Mvc.ProblemDetails
-            {
-                Status = 500,
-                Title = "An unexpected error occurred!",
-                Detail = exceptionHandlerPathFeature?.Error.Message,
-                Instance = context.Request.Path
-            };
-            await context.Response.WriteAsJsonAsync(problem);
-        });
-
         var app = builder.Build();
 
         await InitializeDatabaseAsync(app);
@@ -119,8 +103,8 @@ public static partial class Program
 
         static void ConfigureMiddleware(WebApplication app)
         {
-            // Global error handler
-            app.UseExceptionHandler(HandleGlobalError);
+            // Global error handler (ApiExceptionHandler, registered in AddApiServiceRegistration)
+            app.UseExceptionHandler();
 
             // Configure the HTTP request pipeline
             if (app.Environment.IsDevelopment())
@@ -133,7 +117,6 @@ public static partial class Program
 
             // Custom security middleware
             app.UseSecurityHeaders();              // OWASP #8: Security headers
-            app.UseCustomExceptionHandler();       // OWASP #8: Error handling
             app.UseRequestValidation();            // Input validation and suspicious pattern detection
             app.UseAuditLogging();                 // OWASP #9: API inventory and audit
 

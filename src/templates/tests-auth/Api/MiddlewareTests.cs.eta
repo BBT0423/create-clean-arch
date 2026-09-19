@@ -1,0 +1,140 @@
+using System.Security.Claims;
+using System.Text.Json;
+
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
+
+using Moq;
+
+using <%= it.RootNamespace %>.Api.Middlewares;
+using <%= it.RootNamespace %>.Tests.Fixtures;
+
+namespace <%= it.RootNamespace %>.Tests.Api;
+
+public class MiddlewareTests : BaseTest
+{
+    private sealed class ManualClock(DateTimeOffset start) : TimeProvider
+    {
+        private DateTimeOffset _now = start;
+
+        public override DateTimeOffset GetUtcNow() => _now;
+
+        public void Advance(TimeSpan by) => _now += by;
+    }
+
+    private static DefaultHttpContext RequestTo(string path, string query = "")
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = path;
+        context.Request.QueryString = new QueryString(query);
+        return context;
+    }
+
+    [Theory]
+    [InlineData("/api/products", "?q=<script>alert(1)</script>")]
+    [InlineData("/files/../secret", "")]
+    [InlineData("/api/products", "?q=1 UNION SELECT password FROM users")]
+    [InlineData("/api/products", "?q=${jndi:ldap}")]
+    public void SuspiciousRequests_AreDetected(string path, string query)
+    {
+        Assert.True(SuspiciousRequestDetector.IsSuspicious(RequestTo(path, query).Request));
+    }
+
+    [Fact]
+    public void SuspiciousHeaders_AreDetected()
+    {
+        var context = RequestTo("/api/products");
+        context.Request.Headers["X-Custom"] = "javascript:alert(1)";
+
+        Assert.True(SuspiciousRequestDetector.IsSuspicious(context.Request));
+    }
+
+    [Fact]
+    public void NormalRequests_AreNotFlagged()
+    {
+        Assert.False(SuspiciousRequestDetector.IsSuspicious(RequestTo("/api/v1/Products", "?page=2").Request));
+    }
+
+    [Fact]
+    public void PenaltyBox_BlocksAfterTooManyStrikes_AndReleasesLater()
+    {
+        var clock = new ManualClock(DateTimeOffset.UtcNow);
+        var box = new RequestPenaltyBox(clock);
+
+        for (var i = 0; i < 10; i++)
+        {
+            box.Strike("10.0.0.1");
+        }
+
+        Assert.False(box.IsBlocked("10.0.0.1"));
+
+        box.Strike("10.0.0.1");
+        Assert.True(box.IsBlocked("10.0.0.1"));
+        Assert.False(box.IsBlocked("10.0.0.2"));
+
+        clock.Advance(TimeSpan.FromMinutes(16));
+        Assert.False(box.IsBlocked("10.0.0.1"));
+    }
+
+    [Theory]
+    [InlineData(typeof(UnauthorizedAccessException), 401)]
+    [InlineData(typeof(ArgumentException), 400)]
+    [InlineData(typeof(KeyNotFoundException), 404)]
+    [InlineData(typeof(InvalidOperationException), 500)]
+    public void ExceptionHandler_MapsExceptionsToStatusCodes(Type exceptionType, int expectedStatus)
+    {
+        var exception = (Exception)Activator.CreateInstance(exceptionType)!;
+
+        Assert.Equal(expectedStatus, ApiExceptionHandler.Classify(exception).Status);
+    }
+
+    [Theory]
+    [InlineData("Production", false)]
+    [InlineData("Development", true)]
+    public async Task ExceptionHandler_OnlyExposesInternalsInDevelopment(string environmentName, bool expectDetails)
+    {
+        var environment = new Mock<IHostEnvironment>();
+        environment.SetupGet(e => e.EnvironmentName).Returns(environmentName);
+        var handler = new ApiExceptionHandler(NullLogger<ApiExceptionHandler>.Instance, environment.Object);
+
+        var context = RequestTo("/api/products");
+        context.Response.Body = new MemoryStream();
+
+        var handled = await handler.TryHandleAsync(context, new InvalidOperationException("secret database detail"), CancellationToken.None);
+
+        Assert.True(handled);
+        Assert.Equal(500, context.Response.StatusCode);
+        Assert.StartsWith("application/problem+json", context.Response.ContentType);
+
+        context.Response.Body.Position = 0;
+        using var body = await JsonDocument.ParseAsync(context.Response.Body);
+        var detail = body.RootElement.GetProperty("detail").GetString();
+
+        Assert.Equal(expectDetails, detail == "secret database detail");
+        Assert.Equal(expectDetails, body.RootElement.TryGetProperty("stackTrace", out _));
+    }
+
+    [Fact]
+    public void AuditEntry_DescribesTheCaller_AndSkipsPreflightRequests()
+    {
+        var context = RequestTo("/api/v1/Products");
+        context.Request.Method = HttpMethods.Post;
+        context.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, "user-1"), new Claim(ClaimTypes.Name, "jane")], "test"));
+
+        var success = AuditLoggingMiddleware.CreateEntry(context, failure: null)!;
+        var failure = AuditLoggingMiddleware.CreateEntry(context, failure: "boom")!;
+
+        Assert.Equal("user-1", success.UserId);
+        Assert.Equal("jane", success.UserName);
+        Assert.Equal("POST", success.Action);
+        Assert.Equal("/api/v1/Products", success.Resource);
+        Assert.True(success.Success);
+        Assert.False(failure.Success);
+        Assert.Equal("boom", failure.ErrorMessage);
+
+        context.Request.Method = HttpMethods.Options;
+        Assert.Null(AuditLoggingMiddleware.CreateEntry(context, failure: null));
+    }
+}

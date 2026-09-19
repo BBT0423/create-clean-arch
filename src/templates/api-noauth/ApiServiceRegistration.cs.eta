@@ -1,3 +1,5 @@
+using <%= it.RootNamespace %>.Api.Middlewares;
+
 namespace <%= it.RootNamespace %>.Api;
 
 internal static class ApiServiceRegistration
@@ -7,6 +9,8 @@ internal static class ApiServiceRegistration
         IConfiguration configuration)
     {
         services.AddControllers();
+        services.AddExceptionHandler<ApiExceptionHandler>();
+        services.AddProblemDetails();
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen();
 

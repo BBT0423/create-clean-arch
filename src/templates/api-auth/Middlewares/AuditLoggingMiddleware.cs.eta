@@ -1,83 +1,82 @@
+using System.Diagnostics;
 using System.Security.Claims;
 
 using <%= it.RootNamespace %>.Api.Helpers;
 using <%= it.RootNamespace %>.Application.Common;
 using <%= it.RootNamespace %>.Application.Interfaces.IRepositories;
-using <%= it.RootNamespace %>.Domain.Common;
 
 namespace <%= it.RootNamespace %>.Api.Middlewares;
 
 /// <summary>
-/// Middleware for logging API requests and responses.
+/// Records one audit entry per API call (who, what, from where, and whether it failed) and logs its duration.
 /// Supports OWASP #9 - Improper Inventory Management.
 /// </summary>
-public class AuditLoggingMiddleware(RequestDelegate next, ILogger<AuditLoggingMiddleware> logger)
+public sealed class AuditLoggingMiddleware(RequestDelegate next, ILogger<AuditLoggingMiddleware> logger)
 {
-    private readonly RequestDelegate _next = next;
-    private readonly ILogger<AuditLoggingMiddleware> _logger = logger;
-
-    public async Task InvokeAsync(HttpContext context, IAuditLogRepository auditLogRepository)
+    public async Task InvokeAsync(HttpContext context, IAuditLogRepository auditLog)
     {
-        var startTime = DateTimeProvider.GetBangkokTimeZone();
+        var started = Stopwatch.GetTimestamp();
+        string? failure = null;
 
         try
         {
-            await _next(context);
-
-            await LogRequestAsync(context, auditLogRepository, true, null);
+            await next(context);
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            _logger.LogError(ex, "Unhandled exception in request pipeline for {Method} {Path}",
-                context.Request.Method,
-                context.Request.Path);
-
-            await LogRequestAsync(context, auditLogRepository, false, ex.Message);
-
-            throw new InvalidOperationException(
-                $"An error occurred while processing request {context.Request.Method} {context.Request.Path}",
-                ex);
+            failure = exception.Message;
+            logger.LogError(exception, "Unhandled exception in request pipeline for {Method} {Path}", context.Request.Method, context.Request.Path);
+            throw;
         }
         finally
         {
-            var duration = DateTimeProvider.GetBangkokTimeZone() - startTime;
-            _logger.LogInformation(
+            await TryRecordAsync(context, auditLog, failure);
+            logger.LogInformation(
                 "Request {Method} {Path} completed in {Duration}ms with status {StatusCode}",
                 context.Request.Method,
                 context.Request.Path,
-                duration.TotalMilliseconds,
+                Stopwatch.GetElapsedTime(started).TotalMilliseconds,
                 context.Response.StatusCode);
         }
     }
 
-    private static async Task LogRequestAsync(
-        HttpContext context,
-        IAuditLogRepository auditLogRepository,
-        bool success,
-        string? errorMessage)
+    public static AuditLogRequest? CreateEntry(HttpContext context, string? failure)
     {
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var userName = context.User.FindFirst(ClaimTypes.Name)?.Value ?? "Anonymous";
-        var action = context.Request.Method;
-        if (string.Equals(action, HttpMethods.Options, StringComparison.OrdinalIgnoreCase))
+        if (HttpMethods.IsOptions(context.Request.Method))
+        {
+            return null;
+        }
+
+        return new AuditLogRequest
+        {
+            UserId = context.User.FindFirstValue(ClaimTypes.NameIdentifier),
+            UserName = context.User.FindFirstValue(ClaimTypes.Name) ?? "Anonymous",
+            Action = context.Request.Method,
+            Resource = context.Request.Path.Value ?? string.Empty,
+            IpAddress = context.Connection.RemoteIpAddress?.ToString() ?? ApiConstants.Unknown,
+            UserAgent = context.Request.Headers.UserAgent.ToString(),
+            Success = failure is null,
+            ErrorMessage = failure
+        };
+    }
+
+    private async Task TryRecordAsync(HttpContext context, IAuditLogRepository auditLog, string? failure)
+    {
+        var entry = CreateEntry(context, failure);
+        if (entry is null)
         {
             return;
         }
-        var resource = context.Request.Path.Value ?? "";
-        var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? ApiConstants.Unknown;
-        var userAgent = context.Request.Headers.UserAgent.ToString();
 
-        await auditLogRepository.LogActionAsync(new AuditLogRequest
+        try
         {
-            UserId = userId,
-            UserName = userName,
-            Action = action,
-            Resource = resource,
-            IpAddress = ipAddress,
-            UserAgent = userAgent,
-            Success = success,
-            ErrorMessage = errorMessage
-        });
+            await auditLog.LogActionAsync(entry);
+        }
+        catch (Exception exception)
+        {
+            // A broken audit store must not hide the real outcome of the request.
+            logger.LogWarning(exception, "Failed to write audit entry for {Method} {Path}", entry.Action, entry.Resource);
+        }
     }
 }
 

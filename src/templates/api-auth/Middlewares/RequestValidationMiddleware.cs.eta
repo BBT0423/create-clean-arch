@@ -1,134 +1,135 @@
 using System.Collections.Concurrent;
 
 using <%= it.RootNamespace %>.Api.Helpers;
-using <%= it.RootNamespace %>.Domain.Common;
 
 namespace <%= it.RootNamespace %>.Api.Middlewares;
 
 /// <summary>
-/// Request validation middleware to prevent common attacks.
-/// Addresses multiple OWASP vulnerabilities including injection attacks.
+/// Screens incoming requests for common attack signatures, oversized bodies and clients that keep
+/// sending malicious input, before they reach the rest of the pipeline.
 /// </summary>
-public class RequestValidationMiddleware(RequestDelegate next, ILogger<RequestValidationMiddleware> logger)
+public sealed class RequestValidationMiddleware(
+    RequestDelegate next,
+    ILogger<RequestValidationMiddleware> logger,
+    RequestPenaltyBox penaltyBox)
 {
-    private readonly RequestDelegate _next = next;
-    private readonly ILogger<RequestValidationMiddleware> _logger = logger;
-
-    private static readonly ConcurrentDictionary<string, SuspiciousActivityTracker> _suspiciousIps = new();
+    private const long MaxRequestBytes = 10 * 1024 * 1024;
 
     public async Task InvokeAsync(HttpContext context)
     {
-        var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? ApiConstants.Unknown;
+        var client = context.Connection.RemoteIpAddress?.ToString() ?? ApiConstants.Unknown;
 
-        if (ContainsSuspiciousPatterns(context))
+        if (penaltyBox.IsBlocked(client))
         {
-            _logger.LogWarning("Suspicious request detected from {IpAddress}: {Path}", ipAddress, context.Request.Path);
-
-            TrackSuspiciousActivity(ipAddress);
-
-            context.Response.StatusCode = 400;
-            await context.Response.WriteAsJsonAsync(new { error = "Invalid request" });
+            logger.LogWarning("Blocked request from {IpAddress}", client);
+            await Reject(context, StatusCodes.Status403Forbidden, "Access denied");
             return;
         }
 
-        if (context.Request.ContentLength > 10 * 1024 * 1024) // 10MB limit
+        if (SuspiciousRequestDetector.IsSuspicious(context.Request))
         {
-            _logger.LogWarning("Request too large from {IpAddress}: {Size} bytes", ipAddress, context.Request.ContentLength);
-            context.Response.StatusCode = 413;
-            await context.Response.WriteAsJsonAsync(new { error = "Request too large" });
+            logger.LogWarning("Suspicious request detected from {IpAddress}: {Path}", client, context.Request.Path);
+            penaltyBox.Strike(client);
+            await Reject(context, StatusCodes.Status400BadRequest, "Invalid request");
             return;
         }
 
-        if (IsBlocked(ipAddress))
+        if (context.Request.ContentLength > MaxRequestBytes)
         {
-            _logger.LogWarning("Blocked request from {IpAddress}", ipAddress);
-            context.Response.StatusCode = 403;
-            await context.Response.WriteAsJsonAsync(new { error = "Access denied" });
+            logger.LogWarning("Request too large from {IpAddress}: {Size} bytes", client, context.Request.ContentLength);
+            await Reject(context, StatusCodes.Status413PayloadTooLarge, "Request too large");
             return;
         }
 
-        await _next(context);
+        await next(context);
     }
 
-    private static bool ContainsSuspiciousPatterns(HttpContext context)
+    private static Task Reject(HttpContext context, int status, string message)
     {
-        var suspiciousPatterns = new[]
-        {
-            "../", "..\\",           // Path traversal
-            "<script", "</script>",  // XSS
-            "javascript:",           // XSS
-            "onerror=", "onload=",   // XSS
-            "exec(", "eval(",        // Code injection
-            "union select",          // SQL injection
-            "' or '1'='1",          // SQL injection
-            "DROP TABLE",            // SQL injection
-            "${", "#{",              // Expression language injection
-        };
+        context.Response.StatusCode = status;
+        return context.Response.WriteAsJsonAsync(new { error = message });
+    }
+}
 
-        var queryString = context.Request.QueryString.ToString().ToLowerInvariant();
-        var path = context.Request.Path.ToString().ToLowerInvariant();
+/// <summary>
+/// Pure check for well-known path traversal, XSS, code/SQL/expression injection fragments in the
+/// path, query string and headers of a request.
+/// </summary>
+public static class SuspiciousRequestDetector
+{
+    private static readonly string[] Signatures =
+    [
+        "../", "..\\",
+        "<script", "</script>", "javascript:", "onerror=", "onload=",
+        "exec(", "eval(",
+        "union select", "' or '1'='1", "drop table",
+        "${", "#{"
+    ];
 
-        if (suspiciousPatterns.Any(pattern =>
-            queryString.Contains(pattern, StringComparison.InvariantCultureIgnoreCase) ||
-            path.Contains(pattern, StringComparison.InvariantCultureIgnoreCase)))
-        {
-            return true;
-        }
+    public static bool Matches(string? text) =>
+        !string.IsNullOrEmpty(text) && Signatures.Any(signature => text.Contains(signature, StringComparison.OrdinalIgnoreCase));
 
-        foreach (var header in context.Request.Headers)
+    public static bool IsSuspicious(HttpRequest request) =>
+        Matches(request.Path.Value)
+        || Matches(request.QueryString.Value)
+        || request.Headers.Any(header => Matches(header.Value.ToString()));
+}
+
+/// <summary>
+/// Remembers clients that keep sending suspicious requests: more than ten strikes inside a minute
+/// blocks the client for fifteen minutes.
+/// </summary>
+public sealed class RequestPenaltyBox(TimeProvider clock)
+{
+    private const int MaxStrikesPerWindow = 10;
+    private static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan BlockDuration = TimeSpan.FromMinutes(15);
+
+    private readonly ConcurrentDictionary<string, Ledger> _ledgers = new();
+
+    public void Strike(string client)
+    {
+        var now = clock.GetUtcNow();
+        var ledger = _ledgers.GetOrAdd(client, _ => new Ledger());
+
+        lock (ledger)
         {
-            var headerValue = header.Value.ToString().ToLowerInvariant();
-            if (suspiciousPatterns.Any(p => headerValue.Contains(p, StringComparison.InvariantCultureIgnoreCase)))
+            ledger.Strikes.Enqueue(now);
+            while (ledger.Strikes.Count > 0 && now - ledger.Strikes.Peek() > Window)
             {
-                return true;
+                ledger.Strikes.Dequeue();
+            }
+
+            if (ledger.Strikes.Count > MaxStrikesPerWindow)
+            {
+                ledger.BlockedUntil = now + BlockDuration;
             }
         }
-
-        return false;
     }
 
-    private static void TrackSuspiciousActivity(string ipAddress)
+    public bool IsBlocked(string client)
     {
-        var tracker = _suspiciousIps.GetOrAdd(ipAddress, _ => new SuspiciousActivityTracker());
-        tracker.RecordAttempt();
-    }
-
-    private static bool IsBlocked(string ipAddress)
-    {
-        return _suspiciousIps.TryGetValue(ipAddress, out var tracker) && tracker.IsCurrentlyBlocked();
-    }
-
-    private sealed class SuspiciousActivityTracker
-    {
-        private readonly List<DateTime> _attempts = [];
-        private DateTime? _blockedUntil;
-        private const int MaxAttemptsPerMinute = 10;
-        private const int BlockDurationMinutes = 15;
-
-        public void RecordAttempt()
+        if (!_ledgers.TryGetValue(client, out var ledger))
         {
-            lock (_attempts)
-            {
-                _attempts.Add(DateTimeProvider.GetBangkokTimeZone());
-
-                _attempts.RemoveAll(a => a < DateTimeProvider.GetBangkokTimeZone().AddMinutes(-1));
-
-                if (_attempts.Count > MaxAttemptsPerMinute)
-                {
-                    _blockedUntil = DateTimeProvider.GetBangkokTimeZone().AddMinutes(BlockDurationMinutes);
-                }
-            }
-        }
-
-        public bool IsCurrentlyBlocked()
-        {
-            if (_blockedUntil.HasValue && _blockedUntil > DateTimeProvider.GetBangkokTimeZone())
-            {
-                return true;
-            }
-            _blockedUntil = null;
             return false;
         }
+
+        lock (ledger)
+        {
+            if (ledger.BlockedUntil is { } until && until > clock.GetUtcNow())
+            {
+                return true;
+            }
+
+            ledger.BlockedUntil = null;
+            return false;
+        }
+    }
+
+    private sealed class Ledger
+    {
+        public Queue<DateTimeOffset> Strikes { get; } = new();
+        public DateTimeOffset? BlockedUntil { get; set; }
     }
 }
 
