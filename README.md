@@ -33,7 +33,7 @@ npm install -g github:BBT0423/create-clean-arch
 npm install
 npm run build
 npm pack
-npm install -g ./bbt0423-create-clean-arch-0.1.1.tgz
+npm install -g ./bbt0423-create-clean-arch-0.1.2.tgz
 ```
 
 ### ถ้าติดตั้งแล้วไม่พบคำสั่ง `create-clean-arch`

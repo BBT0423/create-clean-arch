@@ -5,12 +5,15 @@ import { registerGenerateCommand } from "./commands/generate/index.js";
 import { logger } from "./utils/logger.js";
 import type { FrontendChoice, CiChoice, SolutionFormat } from "./core/types.js";
 
+// Injected from package.json at build time by tsup.config.ts; undefined when run via `npm run dev`.
+declare const __CLI_VERSION__: string | undefined;
+
 const program = new Command();
 
 program
   .name("create-clean-arch")
-  .description("Scaffold .NET Clean Architecture solutions (with optional frontend) matching the InnoFinite pattern")
-  .version("0.1.0");
+  .description("Scaffold .NET Clean Architecture solutions with an Auth/JWT/MFA baseline and an optional Vue 3 frontend")
+  .version(typeof __CLI_VERSION__ === "undefined" ? "dev" : __CLI_VERSION__);
 
 program
   .command("create")
