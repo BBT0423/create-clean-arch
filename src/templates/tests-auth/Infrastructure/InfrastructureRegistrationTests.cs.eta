@@ -1,5 +1,6 @@
 using System.Text;
 
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
@@ -102,6 +103,16 @@ public class InfrastructureRegistrationTests : BaseTest, IDisposable
 
         Assert.Equal(Secret, jwtSettings.Secret);
         Assert.Equal(Encoding.UTF8.GetBytes(jwtSettings.Secret), validationKey.Key);
+    }
+
+    [Fact]
+    public async Task BearerToken_IsTheDefaultScheme_EvenThoughIdentityRegistersCookies()
+    {
+        await using var provider = BuildProvider();
+        var schemes = provider.GetRequiredService<IAuthenticationSchemeProvider>();
+
+        Assert.Equal(JwtBearerDefaults.AuthenticationScheme, (await schemes.GetDefaultAuthenticateSchemeAsync())?.Name);
+        Assert.Equal(JwtBearerDefaults.AuthenticationScheme, (await schemes.GetDefaultChallengeSchemeAsync())?.Name);
     }
 
     [Fact]

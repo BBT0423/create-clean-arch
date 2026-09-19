@@ -25,7 +25,14 @@ public static class SecurityExtensions
     /// </summary>
     public static IServiceCollection AddJwtAuthentication(this IServiceCollection services)
     {
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+        // ASP.NET Core Identity registers its own cookie scheme as the default authenticate and challenge
+        // scheme. All three defaults must be overridden, otherwise [Authorize] ignores the bearer token.
+        services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+        }).AddJwtBearer();
 
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
             .Configure<IOptions<JwtSettings>>((bearer, jwt) =>
