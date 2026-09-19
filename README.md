@@ -13,11 +13,19 @@ CQRS เข้าไปในโปรเจกต์ที่สร้างไ
 
 ## ติดตั้ง
 
-ติดตั้งจาก GitHub (repo เป็น private ต้องได้รับสิทธิ์เข้าถึงและ login GitHub ในเครื่องก่อน):
+ติดตั้งจาก npm:
+
+```bash
+npm install -g @bbt0423/create-clean-arch
+```
+
+หรือติดตั้งจาก GitHub (repo เป็น private ต้องได้รับสิทธิ์เข้าถึงและ login GitHub ในเครื่องก่อน):
 
 ```bash
 npm install -g github:BBT0423/create-clean-arch
 ```
+
+ไม่ว่าติดตั้งจากทางไหน ชื่อคำสั่งที่ใช้งานคือ `create-clean-arch`
 
 หรือ build จาก source ในเครื่อง:
 

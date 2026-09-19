@@ -1,10 +1,10 @@
 {
-  "name": "create-clean-arch",
+  "name": "@bbt0423/create-clean-arch",
   "version": "0.1.0",
   "description": "Scaffold .NET Clean Architecture solutions with an Auth/JWT/MFA baseline and an optional Vue 3 frontend",
   "type": "module",
   "bin": {
-    "create-clean-arch": "./dist/index.js"
+    "create-clean-arch": "dist/index.js"
   },
   "files": [
     "dist"
