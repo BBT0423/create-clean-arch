@@ -33,7 +33,7 @@ npm install -g github:BBT0423/create-clean-arch
 npm install
 npm run build
 npm pack
-npm install -g ./create-clean-arch-0.1.0.tgz
+npm install -g ./bbt0423-create-clean-arch-0.1.1.tgz
 ```
 
 ### ถ้าติดตั้งแล้วไม่พบคำสั่ง `create-clean-arch`
@@ -150,3 +150,7 @@ npm test          # vitest unit + ทดสอบ file-tree / token-regression
 npm run test:e2e  # smoke test dotnet/npm (ข้ามอัตโนมัติถ้าไม่มี SDK)
 npm link          # ลองใช้ CLI แบบ global จาก working copy นี้
 ```
+
+## License
+
+[MIT](./LICENSE)

@@ -1,6 +1,7 @@
 {
   "name": "@bbt0423/create-clean-arch",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "license": "MIT",
   "description": "Scaffold .NET Clean Architecture solutions with an Auth/JWT/MFA baseline and an optional Vue 3 frontend",
   "type": "module",
   "bin": {
