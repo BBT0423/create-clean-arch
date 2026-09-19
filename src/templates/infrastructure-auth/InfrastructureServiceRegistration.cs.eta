@@ -290,9 +290,10 @@ public static class InfrastructureServiceRegistration
                     EnableSsl = true,
                 });
 
-        services.AddSingleton<EmailRetryHandler>();
+        services.AddSingleton<EmailOutbox>();
+        services.AddScoped<MailTransport>();
         services.AddScoped<IEmailRepository, EmailRepository>();
-        services.AddHostedService<EmailRecoveryBackgroundService>();
+        services.AddHostedService<EmailDeliveryService>();
 
         return services;
     }

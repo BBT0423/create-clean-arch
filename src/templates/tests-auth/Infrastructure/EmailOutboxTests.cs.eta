@@ -1,0 +1,45 @@
+using System.Net.Mail;
+
+using <%= it.RootNamespace %>.Infrastructure.Common;
+using <%= it.RootNamespace %>.Tests.Fixtures;
+
+namespace <%= it.RootNamespace %>.Tests.Infrastructure;
+
+public class EmailOutboxTests : BaseTest
+{
+    private static EmailEnvelope SampleEnvelope() => new(["user@example.com"], "Subject", "<p>Body</p>");
+
+    [Fact]
+    public void Envelope_KeepsWorking_AfterTheMailMessageIsDisposed()
+    {
+        var mail = new MailMessage("noreply@example.com", "user@example.com", "Reset your password", "<p>Hi</p>");
+        var envelope = EmailEnvelope.From(mail);
+
+        mail.Dispose();
+
+        Assert.Equal(["user@example.com"], envelope.Recipients);
+        Assert.Equal("Reset your password", envelope.Subject);
+        Assert.Equal("<p>Hi</p>", envelope.Body);
+    }
+
+    [Fact]
+    public void Requeue_AcceptsAttemptsUntilTheLimit_ThenRefuses()
+    {
+        var outbox = new EmailOutbox();
+
+        Assert.True(outbox.Requeue(SampleEnvelope(), attemptsMade: 1));
+        Assert.True(outbox.Requeue(SampleEnvelope(), attemptsMade: EmailOutbox.MaxAttempts - 1));
+        Assert.False(outbox.Requeue(SampleEnvelope(), attemptsMade: EmailOutbox.MaxAttempts));
+
+        Assert.True(outbox.Reader.TryRead(out var first));
+        Assert.Equal(1, first!.Attempt);
+    }
+
+    [Fact]
+    public void Backoff_GrowsExponentially()
+    {
+        Assert.Equal(TimeSpan.FromSeconds(3), EmailOutbox.BackoffFor(1));
+        Assert.Equal(TimeSpan.FromSeconds(6), EmailOutbox.BackoffFor(2));
+        Assert.Equal(TimeSpan.FromSeconds(12), EmailOutbox.BackoffFor(3));
+    }
+}

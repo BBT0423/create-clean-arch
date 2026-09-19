@@ -1,0 +1,37 @@
+using System.Net.Mail;
+using System.Threading.Channels;
+
+namespace <%= it.RootNamespace %>.Infrastructure.Common;
+
+/// <summary>
+/// Plain copy of the parts of a <see cref="MailMessage"/> that get delivered. The queue holds this
+/// instead of the message itself because callers usually dispose their MailMessage right after sending.
+/// </summary>
+public sealed record EmailEnvelope(IReadOnlyList<string> Recipients, string Subject, string Body)
+{
+    public static EmailEnvelope From(MailMessage mail) =>
+        new(mail.To.Select(address => address.Address).ToArray(), mail.Subject, mail.Body);
+}
+
+/// <summary>An email waiting for another delivery attempt; Attempt counts the tries made so far.</summary>
+public sealed record PendingMail(EmailEnvelope Envelope, int Attempt);
+
+/// <summary>
+/// In-memory queue of emails whose delivery failed. <see cref="EmailDeliveryService"/> drains it and
+/// retries with backoff. Messages are lost if the process stops before they are delivered.
+/// </summary>
+public sealed class EmailOutbox
+{
+    public const int MaxAttempts = 3;
+
+    private readonly Channel<PendingMail> _queue = Channel.CreateUnbounded<PendingMail>(
+        new UnboundedChannelOptions { SingleReader = true });
+
+    public ChannelReader<PendingMail> Reader => _queue.Reader;
+
+    /// <summary>Queues the message for another attempt unless it has already used up all attempts.</summary>
+    public bool Requeue(EmailEnvelope envelope, int attemptsMade) =>
+        attemptsMade < MaxAttempts && _queue.Writer.TryWrite(new PendingMail(envelope, attemptsMade));
+
+    public static TimeSpan BackoffFor(int attemptsMade) => TimeSpan.FromSeconds(3 * Math.Pow(2, attemptsMade - 1));
+}

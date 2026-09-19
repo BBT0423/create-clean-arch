@@ -1,0 +1,37 @@
+using FluentEmail.Core;
+
+using Microsoft.Extensions.Options;
+
+namespace <%= it.RootNamespace %>.Infrastructure.Common;
+
+/// <summary>Performs a single delivery attempt through the configured FluentEmail sender.</summary>
+public sealed class MailTransport(IFluentEmailFactory emailFactory, IOptions<EmailSettings> settings)
+{
+    /// <summary>
+    /// Returns true when the message was sent, or when there is nothing to send (notifications disabled,
+    /// no recipients). Returns false when the SMTP server could not deliver it.
+    /// </summary>
+    public async Task<bool> TrySendAsync(EmailEnvelope envelope, CancellationToken cancellationToken)
+    {
+        if (!settings.Value.EnableEmailNotifications || envelope.Recipients.Count == 0)
+        {
+            return true;
+        }
+
+        try
+        {
+            // A fresh builder per attempt: FluentEmail builders accumulate recipients if reused.
+            var outcome = await emailFactory.Create()
+                .To(string.Join(";", envelope.Recipients))
+                .Subject(envelope.Subject)
+                .Body(envelope.Body, isHtml: true)
+                .SendAsync(cancellationToken);
+
+            return outcome.Successful;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return false;
+        }
+    }
+}

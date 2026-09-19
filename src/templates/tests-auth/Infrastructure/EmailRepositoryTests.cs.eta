@@ -1,0 +1,100 @@
+using System.Net.Mail;
+
+using FluentEmail.Core;
+using FluentEmail.Core.Interfaces;
+using FluentEmail.Core.Models;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+
+using Moq;
+
+using <%= it.RootNamespace %>.Application.Interfaces;
+using <%= it.RootNamespace %>.Application.Interfaces.IRepositories;
+using <%= it.RootNamespace %>.Infrastructure.Common;
+using <%= it.RootNamespace %>.Infrastructure.Repositories;
+using <%= it.RootNamespace %>.Tests.Fixtures;
+
+namespace <%= it.RootNamespace %>.Tests.Infrastructure;
+
+public class EmailRepositoryTests : BaseTest
+{
+    private sealed class ScriptedSender(bool succeed) : ISender
+    {
+        public int Sent { get; private set; }
+
+        public SendResponse Send(IFluentEmail email, CancellationToken? token = null) => Respond();
+
+        public Task<SendResponse> SendAsync(IFluentEmail email, CancellationToken? token = null) => Task.FromResult(Respond());
+
+        private SendResponse Respond()
+        {
+            Sent++;
+            var response = new SendResponse();
+            if (!succeed)
+            {
+                response.ErrorMessages.Add("smtp unavailable");
+            }
+
+            return response;
+        }
+    }
+
+    private static (ServiceProvider Provider, ScriptedSender Sender, EmailOutbox Outbox) Build(bool succeed, bool enabled = true)
+    {
+        var sender = new ScriptedSender(succeed);
+        var services = new ServiceCollection();
+        services.AddFluentEmail("noreply@example.com").Services.AddSingleton<ISender>(sender);
+        services.AddSingleton(Options.Create(new EmailSettings { EnableEmailNotifications = enabled }));
+        services.AddSingleton(Mock.Of<IAppLogger>());
+        services.AddSingleton<EmailOutbox>();
+        services.AddScoped<MailTransport>();
+        services.AddScoped<IEmailRepository, EmailRepository>();
+
+        var provider = services.BuildServiceProvider();
+        return (provider, sender, provider.GetRequiredService<EmailOutbox>());
+    }
+
+    private static MailMessage Mail() => new("noreply@example.com", "user@example.com", "Hello", "<p>Hi</p>");
+
+    [Fact]
+    public async Task SuccessfulSend_DoesNotTouchTheRetryQueue()
+    {
+        var (provider, sender, outbox) = Build(succeed: true);
+        await using var scopeOwner = provider;
+
+        await provider.CreateScope().ServiceProvider.GetRequiredService<IEmailRepository>().SendEmailAsync(Mail());
+
+        Assert.Equal(1, sender.Sent);
+        Assert.False(outbox.Reader.TryRead(out _));
+    }
+
+    [Fact]
+    public async Task FailedSend_IsQueuedWithACopyOfTheMessage()
+    {
+        var (provider, sender, outbox) = Build(succeed: false);
+        await using var scopeOwner = provider;
+        var mail = Mail();
+
+        await provider.CreateScope().ServiceProvider.GetRequiredService<IEmailRepository>().SendEmailAsync(mail);
+        mail.Dispose();
+
+        Assert.Equal(1, sender.Sent);
+        Assert.True(outbox.Reader.TryRead(out var pending));
+        Assert.Equal(1, pending!.Attempt);
+        Assert.Equal(["user@example.com"], pending.Envelope.Recipients);
+        Assert.Equal("Hello", pending.Envelope.Subject);
+    }
+
+    [Fact]
+    public async Task DisabledNotifications_SendNothing()
+    {
+        var (provider, sender, outbox) = Build(succeed: false, enabled: false);
+        await using var scopeOwner = provider;
+
+        await provider.CreateScope().ServiceProvider.GetRequiredService<IEmailRepository>().SendEmailAsync(Mail());
+
+        Assert.Equal(0, sender.Sent);
+        Assert.False(outbox.Reader.TryRead(out _));
+    }
+}

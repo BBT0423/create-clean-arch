@@ -4,7 +4,6 @@ namespace <%= it.RootNamespace %>.Application.Interfaces.IRepositories;
 
 public interface IEmailRepository
 {
+    /// <summary>Sends the email; if the first attempt fails it is queued for retry instead of throwing.</summary>
     Task SendEmailAsync(MailMessage mail, CancellationToken cancellationToken = default);
-    Task SendEmailAsync(MailMessage mail, int retryCount, CancellationToken cancellationToken = default);
-    void SendEmail(MailMessage mail);
 }

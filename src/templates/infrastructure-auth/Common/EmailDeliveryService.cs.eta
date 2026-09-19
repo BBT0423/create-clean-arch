@@ -1,0 +1,47 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+
+namespace <%= it.RootNamespace %>.Infrastructure.Common;
+
+/// <summary>Background worker that retries queued emails with exponential backoff.</summary>
+public sealed class EmailDeliveryService(EmailOutbox outbox, IServiceScopeFactory scopeFactory, ILogger<EmailDeliveryService> logger) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        logger.LogInformation("Email delivery service is starting.");
+
+        try
+        {
+            await foreach (var pending in outbox.Reader.ReadAllAsync(stoppingToken))
+            {
+                await RetryAsync(pending, stoppingToken);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+
+        logger.LogInformation("Email delivery service is stopping.");
+    }
+
+    private async Task RetryAsync(PendingMail pending, CancellationToken stoppingToken)
+    {
+        await Task.Delay(EmailOutbox.BackoffFor(pending.Attempt), stoppingToken);
+
+        using var scope = scopeFactory.CreateScope();
+        var transport = scope.ServiceProvider.GetRequiredService<MailTransport>();
+        var attempt = pending.Attempt + 1;
+
+        if (await transport.TrySendAsync(pending.Envelope, stoppingToken))
+        {
+            return;
+        }
+
+        if (!outbox.Requeue(pending.Envelope, attempt))
+        {
+            logger.LogError("Giving up on email to {Recipients} after {Attempts} attempts.", string.Join(";", pending.Envelope.Recipients), attempt);
+        }
+    }
+}
