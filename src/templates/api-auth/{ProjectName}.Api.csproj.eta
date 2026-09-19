@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+	<ItemGroup>
+		<ProjectReference Include="..\<%= it.ProjectName %>.Application\<%= it.ProjectName %>.Application.csproj" />
+		<ProjectReference Include="..\<%= it.ProjectName %>.Infrastructure\<%= it.ProjectName %>.Infrastructure.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" />
+		<PackageReference Include="DotNetEnv" />
+		<PackageReference Include="Serilog.AspNetCore" />
+		<PackageReference Include="Swashbuckle.AspNetCore" />
+		<PackageReference Include="Mapster" />
+		<PackageReference Include="Mapster.DependencyInjection" />
+	</ItemGroup>
+</Project>

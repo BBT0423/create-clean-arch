@@ -1,0 +1,67 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "Serilog": {
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "Microsoft.AspNetCore": "Warning",
+        "Microsoft.EntityFrameworkCore": "Warning"
+      }
+    },
+    "WriteTo": [
+      { "Name": "Console" },
+      {
+        "Name": "File",
+        "Args": {
+          "path": "Public/Logs/log-.json",
+          "rollingInterval": "Day",
+          "formatter": "Serilog.Formatting.Json.JsonFormatter, Serilog"
+        }
+      }
+    ]
+  },
+  "AllowedHosts": "*",
+  "ConnectionStrings": {
+    "<%= it.ProjectName %>Connection": "Server=(localdb)\\mssqllocaldb;Database=<%= it.ProjectName %>;Trusted_Connection=True;MultipleActiveResultSets=true;{APP_DB_CONNECTION}"
+  },
+  "JwtSettings": {
+    "Issuer": "<%= it.ProjectName %>",
+    "Audience": "<%= it.ProjectName %>",
+    "Secret": "{APP_JWT_SECRET}",
+    "AccessTokenExpirationMinutes": 120,
+    "RefreshTokenExpirationDays": 7,
+    "ResetPasswordTokenExpiresMinutes": 30
+  },
+  "SecuritySettings": {
+    "MaxFailedLoginAttempts": 5,
+    "LockoutDurationMinutes": 15,
+    "MinPasswordLength": 8,
+    "RequireDigit": true,
+    "RequireUppercase": true,
+    "RequireLowercase": true,
+    "RequireNonAlphanumeric": true,
+    "AllowedExternalDomains": []
+  },
+  "RateLimitSettings": {
+    "PermitLimit": 200,
+    "WindowSeconds": 60,
+    "QueueLimit": 10
+  },
+  "EmailSettings": {
+    "Web": "http://localhost:5173",
+    "From": "{APP_SMTP_USERNAME}",
+    "SmtpServer": "smtp.example.com",
+    "Port": 587,
+    "UserName": "{APP_SMTP_USERNAME}",
+    "Password": "{APP_SMTP_PASSWORD}",
+    "EnableEmailNotifications": false
+  },
+  "Cors": {
+    "AllowedOrigins": [ "http://localhost:5173" ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "IsDevelopment": true,
+  "Logging": {
+    "LogLevel": {
+      "Default": "Debug"
+    }
+  }
+}

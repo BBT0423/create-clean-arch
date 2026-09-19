@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\<%= it.ProjectName %>.Api\<%= it.ProjectName %>.Api.csproj" />
+    <ProjectReference Include="..\<%= it.ProjectName %>.Application\<%= it.ProjectName %>.Application.csproj" />
+    <ProjectReference Include="..\<%= it.ProjectName %>.Domain\<%= it.ProjectName %>.Domain.csproj" />
+    <ProjectReference Include="..\<%= it.ProjectName %>.Infrastructure\<%= it.ProjectName %>.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Moq" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,26 @@
+using <%= it.RootNamespace %>.Application.Authorize;
+using <%= it.RootNamespace %>.Application.Authorize.Commands.ForgotPasswordCommand;
+using <%= it.RootNamespace %>.Application.Authorize.Commands.LoginCommand;
+using <%= it.RootNamespace %>.Application.Authorize.Commands.RefreshTokenCommand;
+using <%= it.RootNamespace %>.Application.Authorize.Commands.ResetPasswordCommand;
+using <%= it.RootNamespace %>.Application.Authorize.Queries.VerifyMfaQuery;
+using <%= it.RootNamespace %>.Application.Common;
+using <%= it.RootNamespace %>.Application.User;
+using <%= it.RootNamespace %>.Application.User.Commands.ChangePasswordCommand;
+
+namespace <%= it.RootNamespace %>.Application.Interfaces.IServices;
+
+/// <summary>
+/// Service interface for user authorization operations.
+/// </summary>
+public interface IAuthorizeService
+{
+    Task<Result<AuthorizeResponse>> LoginAsync(LoginCommand request, CancellationToken cancellationToken = default);
+    Task<Result<AuthorizeResponse>> RefreshTokenAsync(RefreshTokenCommand request, CancellationToken cancellationToken = default);
+    Task<Result<EnableMfaResponse>> EnableMfaAsync(string userId, CancellationToken cancellationToken = default);
+    Task<Result<bool>> ConfirmMfaAsync(string userId, string code, CancellationToken cancellationToken = default);
+    Task<Result<AuthorizeResponse>> VerifyMfaAsync(VerifyMfaQuery request, CancellationToken cancellationToken);
+    Task<Result<bool>> ForgotPasswordAsync(ForgotPasswordCommand request, CancellationToken cancellationToken);
+    Task<Result<bool>> ResetPasswordAsync(ResetPasswordCommand request, CancellationToken cancellationToken);
+    Task<Result<bool>> ChangePasswordAsync(ChangePasswordCommand request, CancellationToken cancellationToken);
+}

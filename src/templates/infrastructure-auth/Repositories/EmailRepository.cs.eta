@@ -1,0 +1,101 @@
+using System.Net.Mail;
+
+using FluentEmail.Core;
+
+using Microsoft.Extensions.Options;
+
+using <%= it.RootNamespace %>.Application.Interfaces;
+using <%= it.RootNamespace %>.Infrastructure.Common;
+using <%= it.RootNamespace %>.Application.Interfaces.IRepositories;
+
+namespace <%= it.RootNamespace %>.Infrastructure.Repositories;
+
+public class EmailRepository(IFluentEmail fluentEmail, IAppLogger logger, EmailRetryHandler emailRetryQueue, IOptions<EmailSettings> emailSettings) : IEmailRepository
+{
+    private readonly IFluentEmail _fluentEmail = fluentEmail;
+    private readonly IAppLogger _logger = logger;
+    private readonly EmailRetryHandler _emailRetryQueue = emailRetryQueue;
+    private readonly EmailSettings _emailSettings = emailSettings.Value;
+
+    public void SendEmail(MailMessage mail)
+    {
+        try
+        {
+            if (mail == null || mail.To.Count == 0 || !_emailSettings.EnableEmailNotifications)
+            {
+                return;
+            }
+
+            var to = string.Join(";", mail.To.Select(x => x.Address));
+            _fluentEmail.To(to)
+                              .Subject(mail.Subject)
+                              .Body(mail.Body, isHtml: true)
+                              .Send();
+        }
+        catch (SmtpException ex)
+        {
+            _logger.LogDebug(ex, $"Failed to send email synchronously. Error: {ex.Message}");
+            _emailRetryQueue.Enqueue(mail);
+        }
+    }
+
+    public async Task SendEmailAsync(MailMessage mail, CancellationToken cancellationToken = default)
+    {
+        var to = string.Empty;
+        try
+        {
+            if (mail == null || mail.To.Count == 0 || !_emailSettings.EnableEmailNotifications)
+            {
+                await Task.CompletedTask;
+                return;
+            }
+            to = string.Join(";", mail.To.Select(x => x.Address));
+            var result = await _fluentEmail.To(to)
+                              .Subject(mail.Subject)
+                              .Body(mail.Body, isHtml: true)
+                              .SendAsync(cancellationToken);
+
+            if (!result.Successful)
+            {
+                _emailRetryQueue.Enqueue(mail);
+            }
+
+            _logger.LogDebug($"Email successfully sent to {to}.");
+        }
+        catch (SmtpException ex)
+        {
+            _emailRetryQueue.Enqueue(mail);
+            _logger.LogDebug(ex, $"Failed to send email to ({to}). Error: {ex.Message}");
+        }
+    }
+
+    public async Task SendEmailAsync(MailMessage mail, int retryCount, CancellationToken cancellationToken = default)
+    {
+        var to = string.Empty;
+        try
+        {
+            if (mail == null || mail.To.Count == 0 || !_emailSettings.EnableEmailNotifications)
+            {
+                await Task.CompletedTask;
+                return;
+            }
+            to = string.Join(";", mail.To.Select(x => x.Address));
+            var result = await _fluentEmail.To(to)
+                              .Subject(mail.Subject)
+                              .Body(mail.Body, isHtml: true)
+                              .SendAsync(cancellationToken);
+
+            if (!result.Successful)
+            {
+                _emailRetryQueue.Enqueue(mail, retryCount);
+            }
+
+            _logger.LogDebug($"Email successfully sent to {to}.");
+        }
+        catch (SmtpException ex)
+        {
+            _emailRetryQueue.Enqueue(mail, retryCount);
+            _logger.LogDebug(ex, $"Failed to send email to ({to}). Error: {ex.Message}");
+        }
+    }
+}

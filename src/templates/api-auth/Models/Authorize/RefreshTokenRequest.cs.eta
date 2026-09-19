@@ -1,0 +1,12 @@
+namespace <%= it.RootNamespace %>.Api.Models.Authorize;
+
+/// <summary>
+/// The request type for the "/refresh" endpoint.
+/// </summary>
+public class RefreshTokenRequest
+{
+    /// <summary>
+    /// The refresh token from the last "/login" or "/refresh" response.
+    /// </summary>
+    public required string RefreshToken { get; init; }
+}

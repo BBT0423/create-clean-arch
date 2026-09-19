@@ -1,0 +1,27 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "Serilog": {
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "Microsoft.AspNetCore": "Warning",
+        "Microsoft.EntityFrameworkCore": "Warning"
+      }
+    },
+    "WriteTo": [
+      { "Name": "Console" }
+    ]
+  },
+  "AllowedHosts": "*",
+  "ConnectionStrings": {
+    "<%= it.ProjectName %>Connection": "Server=(localdb)\\mssqllocaldb;Database=<%= it.ProjectName %>;Trusted_Connection=True;MultipleActiveResultSets=true;{APP_DB_CONNECTION}"
+  },
+  "Cors": {
+    "AllowedOrigins": [ "http://localhost:5173" ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "create-clean-arch",
+  "version": "0.1.0",
+  "description": "Scaffold .NET Clean Architecture solutions with an Auth/JWT/MFA baseline and an optional Vue 3 frontend",
+  "type": "module",
+  "bin": {
+    "create-clean-arch": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup && npm run copy-templates",
+    "copy-templates": "node scripts/copy-templates.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.2.1",
+    "commander": "^13.1.0",
+    "eta": "^3.5.0",
+    "fs-extra": "^11.3.0",
+    "ora": "^8.1.1",
+    "picocolors": "^1.1.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^22.10.5",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

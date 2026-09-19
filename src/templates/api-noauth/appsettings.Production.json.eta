@@ -1,0 +1,8 @@
+{
+  "IsDevelopment": false,
+  "Logging": {
+    "LogLevel": {
+      "Default": "Warning"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+namespace <%= it.RootNamespace %>.Api.Helpers;
+
+internal static class ApiConstants
+{
+    /// <summary>
+    /// The name of the API.
+    /// </summary>
+    public const string ApiName = "<%= it.ProjectName %> Api";
+
+    /// <summary>
+    /// The version of the API.
+    /// </summary>
+    public const string ApiVersion = "v1";
+
+    /// <summary>
+    /// The prefix for the API route.
+    /// </summary>
+    public const string ApiPrefix = $"api/{ApiVersion}";
+
+    public const string WebApiPolicy = "allowWebApiWithOrigins";
+    public const int MaxPageSize = 5000;
+
+    public const string Unknown = "Unknown";
+}

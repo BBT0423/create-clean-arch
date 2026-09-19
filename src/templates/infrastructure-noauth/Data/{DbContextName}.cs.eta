@@ -1,0 +1,58 @@
+using <%= it.RootNamespace %>.Domain.Common;
+<% if (it.IncludeSampleFeature === "true") { %>using <%= it.RootNamespace %>.Domain.Entities;
+<% } %>using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
+
+namespace <%= it.RootNamespace %>.Infrastructure.Data;
+
+public class <%= it.DbContextName %> : DbContext
+{
+    public <%= it.DbContextName %>(DbContextOptions<<%= it.DbContextName %>> options) : base(options)
+    {
+    }
+<% if (it.IncludeSampleFeature === "true") { %>
+    public DbSet<<%= it.EntityName %>> <%= it.EntityNamePlural %> => Set<<%= it.EntityName %>>();
+<% } %>
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        base.OnModelCreating(builder);
+
+        // Apply configurations
+        builder.ApplyConfigurationsFromAssembly(typeof(<%= it.DbContextName %>).Assembly);
+
+        // Global query filter for soft delete
+        foreach (var clrType in builder.Model.GetEntityTypes()
+            .Where(et => typeof(BaseEntity).IsAssignableFrom(et.ClrType))
+            .Select(et => et.ClrType))
+        {
+            builder.Entity(clrType)
+                .HasQueryFilter(CreateIsDeletedFilter(clrType));
+        }
+    }
+
+    private static LambdaExpression CreateIsDeletedFilter(Type entityType)
+    {
+        var parameter = Expression.Parameter(entityType, "e");
+        var property = Expression.Property(parameter, nameof(BaseEntity.IsDeleted));
+        var condition = Expression.Equal(property, Expression.Constant(false));
+        return Expression.Lambda(condition, parameter);
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+        {
+            switch (entry.State)
+            {
+                case EntityState.Added:
+                    entry.Entity.CreatedAt = DateTimeProvider.GetBangkokTimeZone();
+                    break;
+                case EntityState.Modified:
+                    entry.Entity.UpdatedAt = DateTimeProvider.GetBangkokTimeZone();
+                    break;
+            }
+        }
+
+        return base.SaveChangesAsync(cancellationToken);
+    }
+}

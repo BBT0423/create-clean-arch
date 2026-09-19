@@ -1,0 +1,21 @@
+using <%= it.RootNamespace %>.Application.Common;
+
+using FluentValidation;
+
+using MediatR;
+
+namespace <%= it.RootNamespace %>.Application.<%= it.FeatureName %>.Commands.Update<%= it.EntityName %>Command;
+
+public record Update<%= it.EntityName %>Command(int Id, string Name) : IRequest<Result<<%= it.EntityName %>Response>>;
+<% if (it.IncludeValidator === "true") { %>
+public class Update<%= it.EntityName %>CommandValidator : AbstractValidator<Update<%= it.EntityName %>Command>
+{
+    public Update<%= it.EntityName %>CommandValidator()
+    {
+        RuleFor(x => x.Id).GreaterThan(0);
+        RuleFor(x => x.Name)
+            .NotEmpty().WithMessage("Name is required.")
+            .MaximumLength(200);
+    }
+}
+<% } %>

@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="<%= it.ProjectName %>.Api/<%= it.ProjectName %>.Api.csproj" />
+  <Project Path="<%= it.ProjectName %>.Application/<%= it.ProjectName %>.Application.csproj" />
+  <Project Path="<%= it.ProjectName %>.Domain/<%= it.ProjectName %>.Domain.csproj" />
+  <Project Path="<%= it.ProjectName %>.Infrastructure/<%= it.ProjectName %>.Infrastructure.csproj" />
+  <Project Path="<%= it.ProjectName %>.Tests/<%= it.ProjectName %>.Tests.csproj" />
+</Solution>

@@ -1,0 +1,207 @@
+using System.Globalization;
+
+using <%= it.RootNamespace %>.Api.Helpers;
+using <%= it.RootNamespace %>.Api.Middlewares;
+using <%= it.RootNamespace %>.Application;
+using <%= it.RootNamespace %>.Application.Interfaces.IServices;
+using <%= it.RootNamespace %>.Domain.Common;
+using <%= it.RootNamespace %>.Domain.Entities;
+using <%= it.RootNamespace %>.Infrastructure;
+using <%= it.RootNamespace %>.Infrastructure.Data;
+
+using DotNetEnv;
+
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
+
+using Serilog;
+
+namespace <%= it.RootNamespace %>.Api;
+
+public static partial class Program
+{
+    public static async Task Main(string[] args)
+    {
+        // Loads secrets (APP_DB_CONNECTION, APP_JWT_SECRET, ...) from a local, gitignored .env
+        // file at the solution root — walks up from the working directory to find it, so it
+        // works the same whether `dotnet run`/`dotnet ef` is invoked from the solution root or
+        // from this project's own directory. NoClobber: a variable already set in the real
+        // environment always wins over the dev .env file (Env.Load() alone overwrites it instead).
+        Env.NoClobber().TraversePath().Load();
+
+        var builder = WebApplication.CreateBuilder(args);
+
+        ConfigureBuilderServices(builder);
+
+        static void ConfigureBuilderServices(WebApplicationBuilder builder)
+        {
+            builder.Host.UseSerilog((context, configuration) =>
+                 configuration.ReadFrom.Configuration(builder.Configuration)
+                 .Enrich.With<LocalTimeEnricher>()
+                 .WriteTo.Console(
+                     outputTemplate: "{LocalTimestamp} [{Level}] {Message}{NewLine}{Exception}",
+                     formatProvider: CultureInfo.InvariantCulture));
+
+            // Add services to the container.
+            builder.Services.AddApiServiceRegistration(builder.Configuration)
+                .AddApplicationServiceRegistration()
+                .AddInfrastructureServiceRegistration(builder.Configuration);
+        }
+
+        static void HandleGlobalError(IApplicationBuilder errorApp) => errorApp.Run(async context =>
+        {
+            context.Response.StatusCode = 500;
+            context.Response.ContentType = "application/problem+json";
+
+            var exceptionHandlerPathFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
+            var problem = new Microsoft.AspNetCore.Mvc.ProblemDetails
+            {
+                Status = 500,
+                Title = "An unexpected error occurred!",
+                Detail = exceptionHandlerPathFeature?.Error.Message,
+                Instance = context.Request.Path
+            };
+            await context.Response.WriteAsJsonAsync(problem);
+        });
+
+        var app = builder.Build();
+
+        await InitializeDatabaseAsync(app);
+        ConfigureMiddleware(app);
+
+        // Set global culture info
+        var cultureInfo = new CultureInfo("en-US");
+        CultureInfo.DefaultThreadCurrentCulture = cultureInfo;
+        CultureInfo.DefaultThreadCurrentUICulture = cultureInfo;
+
+        // Health check endpoint
+        app.MapGet("/health", () => Results.Ok(new
+        {
+            status = "Healthy",
+            timestamp = DateTimeProvider.GetBangkokTimeZone(),
+            version = "1.0.0"
+        }))
+        .AllowAnonymous();
+
+        Log.Information("Starting <%= it.ProjectName %> API application");
+        await app.RunAsync();
+
+        static async Task InitializeDatabaseAsync(WebApplication app)
+        {
+            using (var scope = app.Services.CreateScope())
+            {
+                var services = scope.ServiceProvider;
+                try
+                {
+                    var context = services.GetRequiredService<<%= it.DbContextName %>>();
+                    var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+                    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+                    var otpService = services.GetRequiredService<IOtpService>();
+
+                    // Apply migrations
+                    await context.Database.MigrateAsync();
+
+                    // Seed roles
+                    await SeedRolesAsync(roleManager);
+
+                    // Seed admin user
+                    await SeedAdminUserAsync(userManager, otpService);
+
+                    Log.Information("Database initialized successfully");
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "An error occurred while initializing the database");
+                }
+            }
+        }
+
+        static void ConfigureMiddleware(WebApplication app)
+        {
+            // Global error handler
+            app.UseExceptionHandler(HandleGlobalError);
+
+            // Configure the HTTP request pipeline
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseSwagger();
+                app.UseSwaggerUI();
+            }
+
+            app.UseHttpsRedirection();
+
+            // Custom security middleware
+            app.UseSecurityHeaders();              // OWASP #8: Security headers
+            app.UseCustomExceptionHandler();       // OWASP #8: Error handling
+            app.UseRequestValidation();            // Input validation and suspicious pattern detection
+            app.UseAuditLogging();                 // OWASP #9: API inventory and audit
+
+            // Rate limiting (OWASP #4)
+            app.UseRateLimiter();
+
+            // CORS
+            app.UseCors();
+<% if (it.IncludeWeb === "true") { %>
+            // Serve the built <%= it.ProjectName %>.Web SPA from wwwroot (copied there at publish time)
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
+<% } %>
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new PhysicalFileProvider(Path.Combine(app.Environment.ContentRootPath, "Public")),
+                RequestPath = "/Public"
+            });
+            app.UseAuthentication();
+            app.UseAuthorization();
+
+            app.MapControllers();
+<% if (it.IncludeWeb === "true") { %>
+            app.MapFallbackToFile("index.html");
+<% } %>
+        }
+    }
+
+    static async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)
+    {
+        var roles = new[] { "Admin", "User" };
+
+        foreach (var role in roles)
+        {
+            if (!await roleManager.RoleExistsAsync(role))
+            {
+                await roleManager.CreateAsync(new IdentityRole(role));
+                Log.Information("Created role: {Role}", role);
+            }
+        }
+    }
+
+    static async Task SeedAdminUserAsync(UserManager<ApplicationUser> userManager, IOtpService otpService)
+    {
+        // NOTE: change this seed email/password before deploying to a real environment.
+        var adminEmail = "admin@example.com";
+
+        if (await userManager.FindByEmailAsync(adminEmail) == null)
+        {
+            var adminUser = new ApplicationUser
+            {
+                Id = Guid.NewGuid().ToString(),
+                UserName = adminEmail,
+                Email = adminEmail,
+                FirstName = "Admin",
+                LastName = "User",
+                EmailConfirmed = true,
+                IsMfaEnabled = false,
+                MfaSecret = otpService.GenerateSecret()
+            };
+
+            var result = await userManager.CreateAsync(adminUser, "Admin@123456");
+
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(adminUser, "Admin");
+                Log.Information("Created admin user: {Email}", adminEmail);
+            }
+        }
+    }
+}

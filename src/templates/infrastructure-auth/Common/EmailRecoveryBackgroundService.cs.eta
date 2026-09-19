@@ -1,0 +1,36 @@
+using <%= it.RootNamespace %>.Application.Interfaces.IRepositories;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+
+namespace <%= it.RootNamespace %>.Infrastructure.Common;
+
+public class EmailRecoveryBackgroundService(ILogger<EmailRecoveryBackgroundService> logger, IServiceProvider serviceProvider) : BackgroundService
+{
+    private readonly ILogger<EmailRecoveryBackgroundService> _logger = logger;
+    private readonly IServiceProvider _serviceProvider = serviceProvider;
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        _logger.LogInformation("Email Recovery Background Service is starting.");
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var scopedProcessingService = scope.ServiceProvider.GetRequiredService<EmailRetryHandler>();
+            var retryItem = await scopedProcessingService.DequeueAsync(stoppingToken);
+            if (retryItem != null)
+            {
+                using (retryItem.Mail as IDisposable)
+                {
+                    await Task.Delay(3000, stoppingToken);
+
+                    var scopedProcessingEmailService = scope.ServiceProvider.GetRequiredService<IEmailRepository>();
+                    await scopedProcessingEmailService.SendEmailAsync(retryItem.Mail, retryItem.RetryCount + 1, stoppingToken);
+                }
+            }
+        }
+
+        _logger.LogInformation("Email Recovery Background Service is stopping.");
+    }
+}

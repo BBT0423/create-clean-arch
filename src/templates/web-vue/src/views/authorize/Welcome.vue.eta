@@ -1,0 +1,63 @@
+<template>
+  <div id="welcomeContainer" class="auth-login-container welcome-card">
+    <h1 class="auth-welcome-text">Welcome to <%= it.ProjectName %> 👋</h1>
+    <p class="auth-subtitle">{{ getGreeting() }}! Your workspace is ready.</p>
+    <button class="btn btn-full welcome-btn" @click="goToDashboard">Go to dashboard</button>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { getGreeting } from '@/utils/utilities';
+import { onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+
+let redirectTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function goToDashboard() {
+  if (redirectTimeout) {
+    clearTimeout(redirectTimeout);
+    redirectTimeout = null;
+  }
+  router.replace('/pages');
+}
+
+onMounted(() => {
+  redirectTimeout = setTimeout(goToDashboard, 1800);
+});
+
+onUnmounted(() => {
+  if (redirectTimeout) {
+    clearTimeout(redirectTimeout);
+  }
+});
+</script>
+
+<style scoped>
+.welcome-card {
+  text-align: center;
+  background: linear-gradient(135deg, #0054e9 0%, #6030ff 100%);
+  border: none;
+}
+
+.welcome-card .auth-welcome-text {
+  color: #ffffff;
+}
+
+.welcome-card .auth-subtitle {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.welcome-btn {
+  background: #ffffff;
+  color: var(--primary);
+  border-color: #ffffff;
+}
+
+.welcome-btn:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.9);
+  transform: translateY(-1px);
+}
+</style>

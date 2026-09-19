@@ -1,0 +1,95 @@
+using System.Globalization;
+
+using <%= it.RootNamespace %>.Api.Middlewares;
+using <%= it.RootNamespace %>.Application;
+using <%= it.RootNamespace %>.Domain.Common;
+using <%= it.RootNamespace %>.Infrastructure;
+using <%= it.RootNamespace %>.Infrastructure.Data;
+
+using DotNetEnv;
+
+using Microsoft.EntityFrameworkCore;
+
+using Serilog;
+
+namespace <%= it.RootNamespace %>.Api;
+
+public static class Program
+{
+    public static async Task Main(string[] args)
+    {
+        // Loads secrets (APP_DB_CONNECTION) from a local, gitignored .env file at the solution
+        // root — walks up from the working directory to find it, so it works the same whether
+        // `dotnet run`/`dotnet ef` is invoked from the solution root or this project's own
+        // directory. NoClobber: a variable already set in the real environment always wins over
+        // the dev .env file (Env.Load() alone overwrites it instead).
+        Env.NoClobber().TraversePath().Load();
+
+        var builder = WebApplication.CreateBuilder(args);
+
+        builder.Host.UseSerilog((context, configuration) =>
+            configuration.ReadFrom.Configuration(builder.Configuration));
+
+        builder.Services.AddApiServiceRegistration(builder.Configuration)
+            .AddApplicationServiceRegistration()
+            .AddInfrastructureServiceRegistration(builder.Configuration);
+
+        var app = builder.Build();
+
+        using (var scope = app.Services.CreateScope())
+        {
+            try
+            {
+                var context = scope.ServiceProvider.GetRequiredService<<%= it.DbContextName %>>();
+                await context.Database.MigrateAsync();
+                Log.Information("Database initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "An error occurred while initializing the database");
+            }
+        }
+
+        app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
+        {
+            context.Response.StatusCode = 500;
+            context.Response.ContentType = "application/problem+json";
+
+            var exceptionHandlerPathFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
+            var problem = new Microsoft.AspNetCore.Mvc.ProblemDetails
+            {
+                Status = 500,
+                Title = "An unexpected error occurred!",
+                Detail = exceptionHandlerPathFeature?.Error.Message,
+                Instance = context.Request.Path
+            };
+            await context.Response.WriteAsJsonAsync(problem);
+        }));
+
+        if (app.Environment.IsDevelopment())
+        {
+            app.UseSwagger();
+            app.UseSwaggerUI();
+        }
+
+        app.UseHttpsRedirection();
+        app.UseMiddleware<ExceptionHandlingMiddleware>();
+        app.UseCors();
+        app.UseAuthorization();
+        app.MapControllers();
+
+        var cultureInfo = new CultureInfo("en-US");
+        CultureInfo.DefaultThreadCurrentCulture = cultureInfo;
+        CultureInfo.DefaultThreadCurrentUICulture = cultureInfo;
+
+        app.MapGet("/health", () => Results.Ok(new
+        {
+            status = "Healthy",
+            timestamp = DateTimeProvider.GetBangkokTimeZone(),
+            version = "1.0.0"
+        }));
+
+        Log.Information("Starting <%= it.ProjectName %> API application");
+        await app.RunAsync();
+    }
+}

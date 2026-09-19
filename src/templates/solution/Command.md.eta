@@ -1,0 +1,7 @@
+## Migration database
+dotnet ef migrations add InitialCreate --project .\<%= it.ProjectName %>.Infrastructure\ --startup-project .\<%= it.ProjectName %>.Api\
+dotnet ef database update --project .\<%= it.ProjectName %>.Infrastructure\ --startup-project .\<%= it.ProjectName %>.Api\
+
+## Run Api Project
+dotnet watch --project .\<%= it.ProjectName %>.Api\
+dotnet run --project .\<%= it.ProjectName %>.Api\

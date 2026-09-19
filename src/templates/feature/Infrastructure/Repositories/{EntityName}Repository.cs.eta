@@ -1,0 +1,9 @@
+using <%= it.RootNamespace %>.Application.Interfaces.IRepositories;
+using <%= it.RootNamespace %>.Domain.Entities;
+using <%= it.RootNamespace %>.Infrastructure.Data;
+
+namespace <%= it.RootNamespace %>.Infrastructure.Repositories;
+
+public class <%= it.EntityName %>Repository(<%= it.DbContextName %> context) : Repository<<%= it.EntityName %>>(context), I<%= it.EntityName %>Repository
+{
+}

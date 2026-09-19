@@ -1,0 +1,7 @@
+using <%= it.RootNamespace %>.Domain.Entities;
+
+namespace <%= it.RootNamespace %>.Application.Interfaces.IRepositories;
+
+public interface I<%= it.EntityName %>Repository : IRepository<<%= it.EntityName %>>
+{
+}

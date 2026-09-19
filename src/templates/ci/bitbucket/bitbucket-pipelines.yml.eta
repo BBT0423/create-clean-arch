@@ -1,0 +1,38 @@
+image: mcr.microsoft.com/dotnet/sdk:10.0
+
+definitions:
+  caches:
+    dotnet-nuget: ~/.nuget/packages
+  steps:
+    - step: &build-backend
+        name: Build and test backend
+        caches:
+          - dotnet-nuget
+        script:
+          - dotnet restore
+          - dotnet build --no-restore --configuration Release
+          - dotnet test --no-build --configuration Release
+<% if (it.IncludeWeb === "true") { %>    - step: &build-frontend
+        name: Build frontend
+        image: node:20
+        caches:
+          - node
+        script:
+          - cd <%= it.ProjectName %>.Web
+          - npm ci
+          - npm run lint:check
+          - npm run build
+<% } %>
+pipelines:
+  branches:
+    main:
+      - step: *build-backend
+<% if (it.IncludeWeb === "true") { %>      - step: *build-frontend
+<% } %>    develop:
+      - step: *build-backend
+<% if (it.IncludeWeb === "true") { %>      - step: *build-frontend
+<% } %>  pull-requests:
+    '**':
+      - step: *build-backend
+<% if (it.IncludeWeb === "true") { %>      - step: *build-frontend
+<% } %>

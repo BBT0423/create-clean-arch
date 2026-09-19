@@ -1,0 +1,20 @@
+namespace <%= it.RootNamespace %>.Api;
+
+internal static class ApiServiceRegistration
+{
+    public static IServiceCollection AddApiServiceRegistration(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddControllers();
+        services.AddEndpointsApiExplorer();
+        services.AddSwaggerGen();
+
+        services.AddCors(options => options.AddDefaultPolicy(policy => policy
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .WithOrigins(configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])));
+
+        return services;
+    }
+}

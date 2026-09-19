@@ -1,0 +1,58 @@
+<% if (it.CrudCreate === "true") { %>using <%= it.RootNamespace %>.Application.<%= it.FeatureName %>.Commands.Create<%= it.EntityName %>Command;
+<% } %><% if (it.CrudUpdate === "true") { %>using <%= it.RootNamespace %>.Application.<%= it.FeatureName %>.Commands.Update<%= it.EntityName %>Command;
+<% } %><% if (it.CrudDelete === "true") { %>using <%= it.RootNamespace %>.Application.<%= it.FeatureName %>.Commands.Delete<%= it.EntityName %>Command;
+<% } %><% if (it.CrudRead === "true") { %>using <%= it.RootNamespace %>.Application.<%= it.FeatureName %>.Queries.Get<%= it.EntityName %>ByIdQuery;
+<% } %><% if (it.CrudList === "true") { %>using <%= it.RootNamespace %>.Application.<%= it.FeatureName %>.Queries.Get<%= it.FeatureName %>Query;
+<% } %>
+using MediatR;
+
+using Microsoft.AspNetCore.Mvc;
+
+namespace <%= it.RootNamespace %>.Api.Controllers;
+
+[ApiController]
+[Route("api/v1/[controller]")]
+public class <%= it.FeatureName %>Controller(ISender sender) : BaseController
+{
+    private readonly ISender _sender = sender;
+<% if (it.CrudList === "true") { %>
+    [HttpGet]
+    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new Get<%= it.FeatureName %>Query(), cancellationToken);
+        return result.IsSuccess ? Ok(result.Value) : ToProblem(result, "Get <%= it.FeatureName %> Failed");
+    }
+<% } %><% if (it.CrudRead === "true") { %>
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new Get<%= it.EntityName %>ByIdQuery(id), cancellationToken);
+        return result.IsSuccess ? Ok(result.Value) : ToProblem(result, "Get <%= it.EntityName %> Failed");
+    }
+<% } %><% if (it.CrudCreate === "true") { %>
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] Create<%= it.EntityName %>Command command, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(command, cancellationToken);
+        return result.IsSuccess ? Ok(result.Value) : ToProblem(result, "Create <%= it.EntityName %> Failed");
+    }
+<% } %><% if (it.CrudUpdate === "true") { %>
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Update(int id, [FromBody] Update<%= it.EntityName %>Command command, CancellationToken cancellationToken)
+    {
+        if (id != command.Id)
+        {
+            return BadRequest("Route id does not match body id.");
+        }
+
+        var result = await _sender.Send(command, cancellationToken);
+        return result.IsSuccess ? Ok(result.Value) : ToProblem(result, "Update <%= it.EntityName %> Failed");
+    }
+<% } %><% if (it.CrudDelete === "true") { %>
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new Delete<%= it.EntityName %>Command(id), cancellationToken);
+        return result.IsSuccess ? Ok(result.Value) : ToProblem(result, "Delete <%= it.EntityName %> Failed");
+    }
+<% } %>}

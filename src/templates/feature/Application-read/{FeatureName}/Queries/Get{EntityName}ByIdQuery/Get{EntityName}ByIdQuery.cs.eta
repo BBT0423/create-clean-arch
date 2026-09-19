@@ -1,0 +1,7 @@
+using <%= it.RootNamespace %>.Application.Common;
+
+using MediatR;
+
+namespace <%= it.RootNamespace %>.Application.<%= it.FeatureName %>.Queries.Get<%= it.EntityName %>ByIdQuery;
+
+public record Get<%= it.EntityName %>ByIdQuery(int Id) : IRequest<Result<<%= it.EntityName %>Response>>;

@@ -1,0 +1,47 @@
+<template>
+  <div class="sidebar-brand">
+    <div class="sidebar-logo-mark">{}</div>
+    <div class="sidebar-brand-text">
+      <div class="sidebar-brand-name"><%= it.ProjectName %></div>
+      <div class="sidebar-brand-sub">web console</div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sidebar-logo-mark {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.sidebar-brand-name {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.sidebar-brand-sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.2;
+  color: var(--text-muted);
+}
+</style>

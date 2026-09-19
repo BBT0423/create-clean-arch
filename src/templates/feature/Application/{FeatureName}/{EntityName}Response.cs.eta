@@ -1,0 +1,7 @@
+namespace <%= it.RootNamespace %>.Application.<%= it.FeatureName %>;
+
+public sealed record <%= it.EntityName %>Response(
+    int Id,
+    string Name,
+    DateTime CreatedAt
+);

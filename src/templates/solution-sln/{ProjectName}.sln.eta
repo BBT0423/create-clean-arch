@@ -1,0 +1,90 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "<%= it.ProjectName %>.Api", "<%= it.ProjectName %>.Api\<%= it.ProjectName %>.Api.csproj", "<%= it.ApiGuid %>"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "<%= it.ProjectName %>.Application", "<%= it.ProjectName %>.Application\<%= it.ProjectName %>.Application.csproj", "<%= it.ApplicationGuid %>"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "<%= it.ProjectName %>.Domain", "<%= it.ProjectName %>.Domain\<%= it.ProjectName %>.Domain.csproj", "<%= it.DomainGuid %>"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "<%= it.ProjectName %>.Infrastructure", "<%= it.ProjectName %>.Infrastructure\<%= it.ProjectName %>.Infrastructure.csproj", "<%= it.InfrastructureGuid %>"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "<%= it.ProjectName %>.Tests", "<%= it.ProjectName %>.Tests\<%= it.ProjectName %>.Tests.csproj", "<%= it.TestsGuid %>"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		<%= it.ApiGuid %>.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		<%= it.ApiGuid %>.Debug|Any CPU.Build.0 = Debug|Any CPU
+		<%= it.ApiGuid %>.Debug|x64.ActiveCfg = Debug|Any CPU
+		<%= it.ApiGuid %>.Debug|x64.Build.0 = Debug|Any CPU
+		<%= it.ApiGuid %>.Debug|x86.ActiveCfg = Debug|Any CPU
+		<%= it.ApiGuid %>.Debug|x86.Build.0 = Debug|Any CPU
+		<%= it.ApiGuid %>.Release|Any CPU.ActiveCfg = Release|Any CPU
+		<%= it.ApiGuid %>.Release|Any CPU.Build.0 = Release|Any CPU
+		<%= it.ApiGuid %>.Release|x64.ActiveCfg = Release|Any CPU
+		<%= it.ApiGuid %>.Release|x64.Build.0 = Release|Any CPU
+		<%= it.ApiGuid %>.Release|x86.ActiveCfg = Release|Any CPU
+		<%= it.ApiGuid %>.Release|x86.Build.0 = Release|Any CPU
+		<%= it.ApplicationGuid %>.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		<%= it.ApplicationGuid %>.Debug|Any CPU.Build.0 = Debug|Any CPU
+		<%= it.ApplicationGuid %>.Debug|x64.ActiveCfg = Debug|Any CPU
+		<%= it.ApplicationGuid %>.Debug|x64.Build.0 = Debug|Any CPU
+		<%= it.ApplicationGuid %>.Debug|x86.ActiveCfg = Debug|Any CPU
+		<%= it.ApplicationGuid %>.Debug|x86.Build.0 = Debug|Any CPU
+		<%= it.ApplicationGuid %>.Release|Any CPU.ActiveCfg = Release|Any CPU
+		<%= it.ApplicationGuid %>.Release|Any CPU.Build.0 = Release|Any CPU
+		<%= it.ApplicationGuid %>.Release|x64.ActiveCfg = Release|Any CPU
+		<%= it.ApplicationGuid %>.Release|x64.Build.0 = Release|Any CPU
+		<%= it.ApplicationGuid %>.Release|x86.ActiveCfg = Release|Any CPU
+		<%= it.ApplicationGuid %>.Release|x86.Build.0 = Release|Any CPU
+		<%= it.DomainGuid %>.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		<%= it.DomainGuid %>.Debug|Any CPU.Build.0 = Debug|Any CPU
+		<%= it.DomainGuid %>.Debug|x64.ActiveCfg = Debug|Any CPU
+		<%= it.DomainGuid %>.Debug|x64.Build.0 = Debug|Any CPU
+		<%= it.DomainGuid %>.Debug|x86.ActiveCfg = Debug|Any CPU
+		<%= it.DomainGuid %>.Debug|x86.Build.0 = Debug|Any CPU
+		<%= it.DomainGuid %>.Release|Any CPU.ActiveCfg = Release|Any CPU
+		<%= it.DomainGuid %>.Release|Any CPU.Build.0 = Release|Any CPU
+		<%= it.DomainGuid %>.Release|x64.ActiveCfg = Release|Any CPU
+		<%= it.DomainGuid %>.Release|x64.Build.0 = Release|Any CPU
+		<%= it.DomainGuid %>.Release|x86.ActiveCfg = Release|Any CPU
+		<%= it.DomainGuid %>.Release|x86.Build.0 = Release|Any CPU
+		<%= it.InfrastructureGuid %>.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		<%= it.InfrastructureGuid %>.Debug|Any CPU.Build.0 = Debug|Any CPU
+		<%= it.InfrastructureGuid %>.Debug|x64.ActiveCfg = Debug|Any CPU
+		<%= it.InfrastructureGuid %>.Debug|x64.Build.0 = Debug|Any CPU
+		<%= it.InfrastructureGuid %>.Debug|x86.ActiveCfg = Debug|Any CPU
+		<%= it.InfrastructureGuid %>.Debug|x86.Build.0 = Debug|Any CPU
+		<%= it.InfrastructureGuid %>.Release|Any CPU.ActiveCfg = Release|Any CPU
+		<%= it.InfrastructureGuid %>.Release|Any CPU.Build.0 = Release|Any CPU
+		<%= it.InfrastructureGuid %>.Release|x64.ActiveCfg = Release|Any CPU
+		<%= it.InfrastructureGuid %>.Release|x64.Build.0 = Release|Any CPU
+		<%= it.InfrastructureGuid %>.Release|x86.ActiveCfg = Release|Any CPU
+		<%= it.InfrastructureGuid %>.Release|x86.Build.0 = Release|Any CPU
+		<%= it.TestsGuid %>.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		<%= it.TestsGuid %>.Debug|Any CPU.Build.0 = Debug|Any CPU
+		<%= it.TestsGuid %>.Debug|x64.ActiveCfg = Debug|Any CPU
+		<%= it.TestsGuid %>.Debug|x64.Build.0 = Debug|Any CPU
+		<%= it.TestsGuid %>.Debug|x86.ActiveCfg = Debug|Any CPU
+		<%= it.TestsGuid %>.Debug|x86.Build.0 = Debug|Any CPU
+		<%= it.TestsGuid %>.Release|Any CPU.ActiveCfg = Release|Any CPU
+		<%= it.TestsGuid %>.Release|Any CPU.Build.0 = Release|Any CPU
+		<%= it.TestsGuid %>.Release|x64.ActiveCfg = Release|Any CPU
+		<%= it.TestsGuid %>.Release|x64.Build.0 = Release|Any CPU
+		<%= it.TestsGuid %>.Release|x86.ActiveCfg = Release|Any CPU
+		<%= it.TestsGuid %>.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

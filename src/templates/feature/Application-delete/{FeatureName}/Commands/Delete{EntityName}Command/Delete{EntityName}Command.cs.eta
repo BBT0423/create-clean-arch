@@ -1,0 +1,7 @@
+using <%= it.RootNamespace %>.Application.Common;
+
+using MediatR;
+
+namespace <%= it.RootNamespace %>.Application.<%= it.FeatureName %>.Commands.Delete<%= it.EntityName %>Command;
+
+public record Delete<%= it.EntityName %>Command(int Id) : IRequest<Result<bool>>;

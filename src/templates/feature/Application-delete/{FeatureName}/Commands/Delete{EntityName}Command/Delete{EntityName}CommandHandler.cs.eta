@@ -1,0 +1,30 @@
+using <%= it.RootNamespace %>.Application.Common;
+using <%= it.RootNamespace %>.Application.Interfaces;
+using <%= it.RootNamespace %>.Application.Interfaces.IRepositories;
+
+using MediatR;
+
+namespace <%= it.RootNamespace %>.Application.<%= it.FeatureName %>.Commands.Delete<%= it.EntityName %>Command;
+
+public class Delete<%= it.EntityName %>CommandHandler(
+    I<%= it.EntityName %>Repository repository,
+    IUnitOfWork unitOfWork
+) : IRequestHandler<Delete<%= it.EntityName %>Command, Result<bool>>
+{
+    private readonly I<%= it.EntityName %>Repository _repository = repository;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
+
+    public async Task<Result<bool>> Handle(Delete<%= it.EntityName %>Command request, CancellationToken cancellationToken)
+    {
+        var entity = await _repository.GetByIdAsync(request.Id);
+        if (entity is null)
+        {
+            return Result.Failure<bool>($"<%= it.EntityName %> {request.Id} was not found.", 404);
+        }
+
+        await _repository.DeleteAsync(entity);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success(true);
+    }
+}

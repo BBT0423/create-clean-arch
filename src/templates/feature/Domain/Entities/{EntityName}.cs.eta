@@ -1,0 +1,8 @@
+using <%= it.RootNamespace %>.Domain.Common;
+
+namespace <%= it.RootNamespace %>.Domain.Entities;
+
+public class <%= it.EntityName %> : BaseEntity
+{
+    public string Name { get; set; } = string.Empty;
+}

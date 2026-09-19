@@ -1,0 +1,24 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+## Logs
+Public/Logs/
+*.log
+
+## Environment / secrets
+.env
+.env.local
+appsettings.*.local.json
+
+## Node / frontend
+node_modules/
+dist/
+.vite/
+
+## Editor
+.idea/
+*.swp

@@ -1,0 +1,31 @@
+using <%= it.RootNamespace %>.Application.Common;
+using <%= it.RootNamespace %>.Application.Interfaces;
+using <%= it.RootNamespace %>.Application.Interfaces.IRepositories;
+
+using MediatR;
+
+namespace <%= it.RootNamespace %>.Application.<%= it.FeatureName %>.Commands.Update<%= it.EntityName %>Command;
+
+public class Update<%= it.EntityName %>CommandHandler(
+    I<%= it.EntityName %>Repository repository,
+    IUnitOfWork unitOfWork
+) : IRequestHandler<Update<%= it.EntityName %>Command, Result<<%= it.EntityName %>Response>>
+{
+    private readonly I<%= it.EntityName %>Repository _repository = repository;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
+
+    public async Task<Result<<%= it.EntityName %>Response>> Handle(Update<%= it.EntityName %>Command request, CancellationToken cancellationToken)
+    {
+        var entity = await _repository.GetByIdAsync(request.Id);
+        if (entity is null)
+        {
+            return Result.Failure<<%= it.EntityName %>Response>($"<%= it.EntityName %> {request.Id} was not found.", 404);
+        }
+
+        entity.Name = request.Name;
+        await _repository.UpdateAsync(entity);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success(new <%= it.EntityName %>Response(entity.Id, entity.Name, entity.CreatedAt));
+    }
+}

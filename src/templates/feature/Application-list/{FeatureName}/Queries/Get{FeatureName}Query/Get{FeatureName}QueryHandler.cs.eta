@@ -1,0 +1,21 @@
+using <%= it.RootNamespace %>.Application.Common;
+using <%= it.RootNamespace %>.Application.Interfaces.IRepositories;
+
+using MediatR;
+
+namespace <%= it.RootNamespace %>.Application.<%= it.FeatureName %>.Queries.Get<%= it.FeatureName %>Query;
+
+public class Get<%= it.FeatureName %>QueryHandler(
+    I<%= it.EntityName %>Repository repository
+) : IRequestHandler<Get<%= it.FeatureName %>Query, Result<IEnumerable<<%= it.EntityName %>Response>>>
+{
+    private readonly I<%= it.EntityName %>Repository _repository = repository;
+
+    public async Task<Result<IEnumerable<<%= it.EntityName %>Response>>> Handle(Get<%= it.FeatureName %>Query request, CancellationToken cancellationToken)
+    {
+        var entities = await _repository.GetAllAsync();
+        var response = entities.Select(e => new <%= it.EntityName %>Response(e.Id, e.Name, e.CreatedAt));
+
+        return Result.Success(response);
+    }
+}

@@ -1,0 +1,24 @@
+using <%= it.RootNamespace %>.Application.Common;
+using <%= it.RootNamespace %>.Application.Interfaces.IRepositories;
+
+using MediatR;
+
+namespace <%= it.RootNamespace %>.Application.<%= it.FeatureName %>.Queries.Get<%= it.EntityName %>ByIdQuery;
+
+public class Get<%= it.EntityName %>ByIdQueryHandler(
+    I<%= it.EntityName %>Repository repository
+) : IRequestHandler<Get<%= it.EntityName %>ByIdQuery, Result<<%= it.EntityName %>Response>>
+{
+    private readonly I<%= it.EntityName %>Repository _repository = repository;
+
+    public async Task<Result<<%= it.EntityName %>Response>> Handle(Get<%= it.EntityName %>ByIdQuery request, CancellationToken cancellationToken)
+    {
+        var entity = await _repository.GetByIdAsync(request.Id);
+        if (entity is null)
+        {
+            return Result.Failure<<%= it.EntityName %>Response>($"<%= it.EntityName %> {request.Id} was not found.", 404);
+        }
+
+        return Result.Success(new <%= it.EntityName %>Response(entity.Id, entity.Name, entity.CreatedAt));
+    }
+}

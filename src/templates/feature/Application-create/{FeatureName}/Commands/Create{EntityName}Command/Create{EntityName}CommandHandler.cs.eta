@@ -1,0 +1,26 @@
+using <%= it.RootNamespace %>.Application.Common;
+using <%= it.RootNamespace %>.Application.Interfaces;
+using <%= it.RootNamespace %>.Application.Interfaces.IRepositories;
+using <%= it.RootNamespace %>.Domain.Entities;
+
+using MediatR;
+
+namespace <%= it.RootNamespace %>.Application.<%= it.FeatureName %>.Commands.Create<%= it.EntityName %>Command;
+
+public class Create<%= it.EntityName %>CommandHandler(
+    I<%= it.EntityName %>Repository repository,
+    IUnitOfWork unitOfWork
+) : IRequestHandler<Create<%= it.EntityName %>Command, Result<<%= it.EntityName %>Response>>
+{
+    private readonly I<%= it.EntityName %>Repository _repository = repository;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
+
+    public async Task<Result<<%= it.EntityName %>Response>> Handle(Create<%= it.EntityName %>Command request, CancellationToken cancellationToken)
+    {
+        var entity = new <%= it.EntityName %> { Name = request.Name };
+        await _repository.AddAsync(entity);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success(new <%= it.EntityName %>Response(entity.Id, entity.Name, entity.CreatedAt));
+    }
+}

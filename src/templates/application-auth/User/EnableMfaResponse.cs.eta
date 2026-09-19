@@ -1,0 +1,6 @@
+namespace <%= it.RootNamespace %>.Application.User;
+
+public record EnableMfaResponse(
+    string SharedKey,
+    string AuthenticatorUri
+);
