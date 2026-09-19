@@ -1,33 +1,41 @@
 # create-clean-arch
 
-Scaffolds a .NET 10 / C# Clean Architecture solution (Domain/Application/Infrastructure/Api/Tests),
-with an Auth + JWT + MFA + email password-reset baseline included by default, an optional Vue 3
-frontend, optional CI pipeline templates, and a `generate feature` command to add new
-vertical-slice CQRS features into a project it already created.
+CLI สำหรับสร้างโปรเจกต์ .NET 10 / C# แบบ Clean Architecture (Domain / Application / Infrastructure /
+Api / Tests) โดยมีระบบ Auth + JWT + MFA + ลืมรหัสผ่านทางอีเมลมาให้ตั้งแต่ต้น เลือกเพิ่ม frontend
+Vue 3 และไฟล์ CI pipeline ได้ และมีคำสั่ง `generate feature` สำหรับเพิ่ม feature แบบ vertical-slice
+CQRS เข้าไปในโปรเจกต์ที่สร้างไว้แล้ว
 
-## Install
+## ความต้องการของระบบ
+
+- Node.js 20 ขึ้นไป
+- .NET 10 SDK (สำหรับ build และรันโปรเจกต์ที่สร้างขึ้น)
+- SQL Server (ค่าเริ่มต้นใช้ LocalDB) หากต้องการรัน migration
+
+## ติดตั้ง
+
+ติดตั้งจาก GitHub (repo เป็น private ต้องได้รับสิทธิ์เข้าถึงและ login GitHub ในเครื่องก่อน):
 
 ```bash
-npm install -g create-clean-arch
+npm install -g github:BBT0423/create-clean-arch
 ```
 
-Or from a local build of this repo:
+หรือ build จาก source ในเครื่อง:
 
 ```bash
+npm install
 npm run build
 npm pack
 npm install -g ./create-clean-arch-0.1.0.tgz
 ```
 
-### If `create-clean-arch` isn't found after install
+### ถ้าติดตั้งแล้วไม่พบคำสั่ง `create-clean-arch`
 
-Open a **new** terminal window first — an already-open shell won't see a PATH update from the
-install. If it's still not found, npm's global bin folder isn't on your PATH (this happens with
-some Node version managers, e.g. nvm-for-Windows forks that install packages under a versioned
-folder that isn't itself linked into PATH). Two options:
+ให้เปิด terminal **หน้าต่างใหม่** ก่อน เพราะ terminal ที่เปิดค้างไว้จะไม่เห็น PATH ที่เพิ่งอัปเดต
+ถ้ายังไม่พบ แปลว่าโฟลเดอร์ global bin ของ npm ไม่ได้อยู่ใน PATH (พบบ่อยกับ Node version manager
+บางตัว เช่น nvm-for-Windows ที่ติดตั้งแพ็กเกจไว้ในโฟลเดอร์ตามเวอร์ชัน) มี 2 ทางเลือก:
 
-- Run it via `npx` without touching PATH: `npx create-clean-arch create MyApp ...`
-- Add npm's global bin folder to PATH once, permanently (PowerShell, **run before first use**):
+- รันผ่าน `npx` โดยไม่ต้องแตะ PATH: `npx create-clean-arch create MyApp ...`
+- เพิ่มโฟลเดอร์ global bin ของ npm เข้า PATH ถาวรครั้งเดียว (PowerShell, **รันก่อนใช้งานครั้งแรก**):
 
   ```powershell
   $dir = npm config get prefix
@@ -37,81 +45,87 @@ folder that isn't itself linked into PATH). Two options:
   }
   ```
 
-  Then open a new terminal and `create-clean-arch --version` should resolve.
+  จากนั้นเปิด terminal ใหม่ แล้วรัน `create-clean-arch --version` ควรใช้ได้
 
-After a fresh global install, open a **new** terminal window before running the command — an
-already-open shell won't see the updated PATH.
-
-## Commands
+## คำสั่ง
 
 ### `create [name]`
 
-Creates a new solution. Prompts interactively for anything not passed as a flag; pass `--yes` to
-skip prompts entirely (missing required info then fails instead of asking).
+สร้าง solution ใหม่ หากไม่ได้ระบุ flag จะถามแบบ interactive ใส่ `--yes` เพื่อข้ามคำถามทั้งหมด
+(ถ้าข้อมูลที่จำเป็นขาดไปจะ error แทนที่จะถาม)
 
 ```bash
 create-clean-arch create MyApp
 create-clean-arch create MyApp --frontend vue --ci github --sample-feature --yes
 ```
 
-| Flag | Description | Default |
+| Flag | คำอธิบาย | ค่าเริ่มต้น |
 |---|---|---|
-| `--dir <path>` | Output directory | `./<name>` |
-| `--frontend <choice>` | `none` \| `vue` (`react`/`angular`/`next` are not implemented yet) | `none` |
-| `--db <provider>` | Database provider — only `sqlserver` is implemented | `sqlserver` |
-| `--auth` / `--no-auth` | Include the Auth/JWT/MFA/forgot-password baseline | `--auth` (on) |
+| `--dir <path>` | โฟลเดอร์ปลายทาง | `./<name>` |
+| `--frontend <choice>` | `none` \| `vue` (`react`/`angular`/`next` ยังไม่รองรับ) | `none` |
+| `--db <provider>` | ฐานข้อมูล — รองรับเฉพาะ `sqlserver` | `sqlserver` |
+| `--auth` / `--no-auth` | รวมระบบ Auth/JWT/MFA/ลืมรหัสผ่าน | `--auth` (เปิด) |
 | `--ci <provider>` | `none` \| `github` \| `bitbucket` | `none` |
-| `--sample-feature` | Add a sample CRUD feature (`Products`) on top of the baseline | off |
-| `--solution-format <format>` | `sln` (classic) or `slnx` (new XML format) | `sln` |
-| `--skip-install` | Skip running `dotnet restore` after scaffolding | off |
-| `--migrate` / `--no-migrate` | Create an initial EF Core migration (`InitialCreate`) after scaffolding | asks |
-| `--update-database` / `--no-update-database` | Also apply the migration (needs a reachable database) | asks |
-| `-y, --yes` | Non-interactive: accept defaults for anything not passed as a flag | off |
-| `--force` | Overwrite files that already exist and differ | off |
+| `--sample-feature` | เพิ่มตัวอย่าง CRUD (`Products`) ต่อจาก baseline | ปิด |
+| `--solution-format <format>` | `sln` (แบบคลาสสิก) หรือ `slnx` (แบบ XML ใหม่) | `sln` |
+| `--skip-install` | ข้ามการรัน `dotnet restore` หลังสร้างเสร็จ | ปิด |
+| `--migrate` / `--no-migrate` | สร้าง EF Core migration แรก (`InitialCreate`) หลังสร้างเสร็จ | ถาม |
+| `--update-database` / `--no-update-database` | apply migration ลงฐานข้อมูลด้วย (ต้องเชื่อมต่อ DB ได้) | ถาม |
+| `-y, --yes` | ไม่ถาม: ใช้ค่าเริ่มต้นสำหรับสิ่งที่ไม่ได้ระบุ flag | ปิด |
+| `--force` | เขียนทับไฟล์ที่มีอยู่แล้วและเนื้อหาต่างกัน | ปิด |
 
-Notes:
-- `--frontend vue` requires the Auth baseline (the Vue pages call the Authorize/User API), so it
-  can't be combined with `--no-auth`.
-- Writes a `.cleanarch.json` marker file at the project root — `generate feature` reads it to find
-  the project name/namespace without re-prompting.
+หมายเหตุ:
+- `--frontend vue` ต้องใช้คู่กับ Auth baseline (หน้า Vue เรียก API ของ Authorize/User) จึงใช้ร่วมกับ
+  `--no-auth` ไม่ได้
+- จะสร้างไฟล์ `.cleanarch.json` ไว้ที่ root ของโปรเจกต์ — `generate feature` ใช้ไฟล์นี้อ่านชื่อ
+  โปรเจกต์/namespace โดยไม่ต้องถามใหม่
 
 ### `generate feature [name]`
 
-Adds a vertical-slice feature (Domain entity, CQRS commands/queries, repository, Api controller)
-into a project previously created with `create`. Must be run from inside that project's directory
-(where `.cleanarch.json` lives).
+เพิ่ม feature แบบ vertical-slice (Domain entity, CQRS commands/queries, repository, Api controller)
+เข้าไปในโปรเจกต์ที่สร้างด้วย `create` ไว้แล้ว ต้องรันจากในโฟลเดอร์ของโปรเจกต์นั้น
+(ที่มีไฟล์ `.cleanarch.json`)
 
 ```bash
 cd MyApp
 create-clean-arch generate feature Orders --entity Order --crud create,read,list,update,delete
 ```
 
-| Flag | Description | Default |
+| Flag | คำอธิบาย | ค่าเริ่มต้น |
 |---|---|---|
-| `--entity <name>` | Entity name, if different from the singularized feature name | singularized feature name |
-| `--crud <ops>` | Comma-separated: `create,read,list,update,delete` | `create,read,list` |
-| `--validator` / `--no-validator` | Include FluentValidation validators for Create/Update | `--validator` (on) |
-| `--force` | Overwrite files that already exist and differ | off |
-| `--dry-run` | Print the file plan without writing anything | off |
-| `-y, --yes` | Do not prompt; fail if required info is missing | off |
+| `--entity <name>` | ชื่อ entity หากต่างจากชื่อ feature ที่แปลงเป็นเอกพจน์ | ชื่อ feature แบบเอกพจน์ |
+| `--crud <ops>` | คั่นด้วยจุลภาค: `create,read,list,update,delete` | `create,read,list` |
+| `--validator` / `--no-validator` | รวม FluentValidation validator สำหรับ Create/Update | `--validator` (เปิด) |
+| `--force` | เขียนทับไฟล์ที่มีอยู่แล้วและเนื้อหาต่างกัน | ปิด |
+| `--dry-run` | แสดงแผนไฟล์ที่จะสร้างโดยไม่เขียนจริง | ปิด |
+| `-y, --yes` | ไม่ถาม: ถ้าข้อมูลที่จำเป็นขาดไปจะ error | ปิด |
 
-Conflict handling is all-or-nothing: if any target file already exists with different content,
-nothing is written (the conflicting paths are listed) unless `--force` is passed.
+การจัดการไฟล์ชนกันเป็นแบบ "ทั้งหมดหรือไม่เลย": ถ้ามีไฟล์ปลายทางใดมีอยู่แล้วและเนื้อหาต่างกัน
+จะไม่เขียนอะไรเลย (และแสดงรายการไฟล์ที่ชน) เว้นแต่ใส่ `--force`
 
-## After scaffolding
+> `generate feature` สร้างเฉพาะฝั่ง backend เท่านั้น ยังไม่มีหน้า UI สำหรับ CRUD ที่สร้างให้
+
+## หลังสร้างโปรเจกต์เสร็จ
 
 ```bash
 cd MyApp
 dotnet build
-dotnet run --project ./MyApp.Api     # Swagger at /swagger
+dotnet run --project ./MyApp.Api     # Swagger ที่ /swagger
 ```
 
-Secrets for local development are generated for you: a `.env` at the solution root (DB connection,
-random JWT secret, dummy SMTP values) and one in `<Name>.Web/` (random client-side storage key).
-Both are gitignored and loaded automatically. Replace the dummy SMTP values before enabling email
-(forgot/reset password sends a real email).
+ถ้าไม่ได้ใช้ `--migrate` / `--update-database` ต้องสร้างและ apply migration เองก่อนรัน:
 
-If `--frontend vue` was used:
+```bash
+dotnet ef migrations add InitialCreate --project ./MyApp.Infrastructure --startup-project ./MyApp.Api
+dotnet ef database update --project ./MyApp.Infrastructure --startup-project ./MyApp.Api
+```
+
+ค่าลับสำหรับการพัฒนาในเครื่องจะถูกสร้างให้อัตโนมัติ: ไฟล์ `.env` ที่ root ของ solution (connection
+string ของ DB, JWT secret แบบสุ่ม, ค่า SMTP ตัวอย่าง) และอีกไฟล์ใน `<Name>.Web/` (คีย์เข้ารหัสฝั่ง
+client แบบสุ่ม) ทั้งสองไฟล์อยู่ใน `.gitignore` และถูกโหลดให้อัตโนมัติ ให้แทนค่า SMTP ตัวอย่างด้วยค่าจริง
+ก่อนเปิดการส่งอีเมล (ระบบลืม/รีเซ็ตรหัสผ่านส่งอีเมลจริง)
+
+ถ้าใช้ `--frontend vue`:
 
 ```bash
 cd MyApp.Web
@@ -119,11 +133,12 @@ npm install
 npm run dev
 ```
 
-## Development (working on this CLI itself)
+## พัฒนา CLI ตัวนี้เอง
 
 ```bash
-npm run build   # tsup -> dist/index.js, then copies src/templates -> dist/templates
-npm test        # vitest unit + file-tree/token-regression tests
-npm run test:e2e  # gated dotnet/npm smoke tests (skipped if SDKs aren't installed)
-npm link        # try the CLI globally from this working copy
+npm install
+npm run build     # tsup -> dist/index.js แล้วคัดลอก src/templates -> dist/templates
+npm test          # vitest unit + ทดสอบ file-tree / token-regression
+npm run test:e2e  # smoke test dotnet/npm (ข้ามอัตโนมัติถ้าไม่มี SDK)
+npm link          # ลองใช้ CLI แบบ global จาก working copy นี้
 ```
